@@ -481,7 +481,10 @@ function createRoom(){
   connections = {};
 
   log("در حال ساخت روم...");
-  createPeer(hostPeerId);
+  setStatus("در حال ساخت روم، لطفاً صبر کنید...");
+
+  // بعد از destroy شدن Peer قبلی کمی صبر می‌کنیم تا شناسه قبلی آزاد شود.
+  setTimeout(()=>createPeer(hostPeerId), peer ? 600 : 0);
 }
 
 function joinRoom(){
@@ -511,7 +514,9 @@ function joinRoom(){
   connections = {};
 
   log("در حال اتصال به روم...");
-  createPeer(null);
+  setStatus("در حال پیدا کردن روم...");
+
+  setTimeout(()=>createPeer(null), peer ? 600 : 0);
 }
 
 function createPeer(customID){
@@ -566,11 +571,25 @@ function createPeer(customID){
     handleIncomingCall(call);
   });
 
+  peer.on("disconnected",()=>{
+    log("ارتباط با سرور PeerJS قطع شد.");
+    setStatus("ارتباط با سرور قطع شد؛ در حال تلاش برای اتصال مجدد...");
+  });
+
+  peer.on("close",()=>{
+    log("اتصال PeerJS بسته شد.");
+  });
+
   peer.on("error",error=>{
     log("خطا: " + error.type);
 
     if(error.type === "unavailable-id"){
-      setStatus("این کد روم قبلاً استفاده شده است.");
+      setStatus("این کد روم قبلاً استفاده شده است؛ یک کد دیگر انتخاب کنید یا وارد روم شوید.");
+      log("ساخت روم انجام نشد؛ این کد در حال حاضر استفاده شده است.");
+      if(peer){
+        try{ peer.destroy(); }catch(error){}
+        peer = null;
+      }
     }else if(error.type === "peer-unavailable"){
       if(peer){
         try{
