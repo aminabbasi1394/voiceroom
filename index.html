@@ -370,6 +370,8 @@ let localStream = null;
 let microphoneEnabled = false;
 let calls = {};
 let audioEnabled = true;
+let roomOperationInProgress = false;
+let peerOpenTimeout = null;
 
 /* ابزارها */
 
@@ -455,6 +457,12 @@ function loadRoomFromURL(){
 /* ساخت و ورود به روم */
 
 function createRoom(){
+  if(roomOperationInProgress){
+    setStatus("لطفاً تا پایان تلاش فعلی صبر کنید.");
+    return;
+  }
+
+  const hadPeer = !!peer;
   if(peer){
     try{ peer.destroy(); }catch(error){}
     peer = null;
@@ -484,10 +492,17 @@ function createRoom(){
   setStatus("در حال ساخت روم، لطفاً صبر کنید...");
 
   // بعد از destroy شدن Peer قبلی کمی صبر می‌کنیم تا شناسه قبلی آزاد شود.
-  setTimeout(()=>createPeer(hostPeerId), peer ? 600 : 0);
+  roomOperationInProgress = true;
+  setTimeout(()=>createPeer(hostPeerId), hadPeer ? 800 : 0);
 }
 
 function joinRoom(){
+  if(roomOperationInProgress){
+    setStatus("لطفاً تا پایان تلاش فعلی صبر کنید.");
+    return;
+  }
+
+  const hadPeer = !!peer;
   if(peer){
     try{ peer.destroy(); }catch(error){}
     peer = null;
@@ -516,7 +531,8 @@ function joinRoom(){
   log("در حال اتصال به روم...");
   setStatus("در حال پیدا کردن روم...");
 
-  setTimeout(()=>createPeer(null), peer ? 600 : 0);
+  roomOperationInProgress = true;
+  setTimeout(()=>createPeer(null), hadPeer ? 800 : 0);
 }
 
 function createPeer(customID){
@@ -524,7 +540,20 @@ function createPeer(customID){
     ? new Peer(customID,{debug:1})
     : new Peer(undefined,{debug:1});
 
+  clearTimeout(peerOpenTimeout);
+  peerOpenTimeout = setTimeout(()=>{
+    if(peer && !peer.open){
+      roomOperationInProgress = false;
+      log("زمان برقراری اتصال با سرور تمام شد.");
+      setStatus("اتصال به سرور برقرار نشد. اینترنت و VPN را بررسی کنید و دوباره تلاش کنید.");
+      try{ peer.destroy(); }catch(error){}
+      peer = null;
+    }
+  },15000);
+
   peer.on("open",id=>{
+    clearTimeout(peerOpenTimeout);
+    roomOperationInProgress = false;
     myID = id;
     log("شناسه: " + id);
 
@@ -581,6 +610,8 @@ function createPeer(customID){
   });
 
   peer.on("error",error=>{
+    clearTimeout(peerOpenTimeout);
+    roomOperationInProgress = false;
     log("خطا: " + error.type);
 
     if(error.type === "unavailable-id"){
@@ -601,6 +632,10 @@ function createPeer(customID){
       log("ورود به روم انجام نشد.");
     }else{
       setStatus("خطا در اتصال: " + error.type);
+      if(peer){
+        try{ peer.destroy(); }catch(closeError){}
+        peer = null;
+      }
     }
   });
 }
