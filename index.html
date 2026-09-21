@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>VoiceRoom</title>
-<script src="https://cdn.jsdelivr.net/npm/@metered-ca/realtime@1.2.0/dist/index.umd.js"></script>
+<script src="https://unpkg.com/@metered-ca/realtime@1.2.0/dist/index.umd.js"></script>
 
 <style>
 *{
@@ -432,8 +432,9 @@ async function startMeteredRoom(){
   log("در حال اتصال به Metered...");
 
   try{
-    if(typeof MeteredPeer === "undefined") throw new Error("کتابخانه Metered بارگذاری نشده است.");
-    peer = new MeteredPeer({ apiKey: METERED_API_KEY });
+    const MeteredPeerClass = window.MeteredPeer && window.MeteredPeer.MeteredPeer;
+    if(typeof MeteredPeerClass !== "function") throw new Error("کتابخانه Metered بارگذاری نشده است یا ساختار آن صحیح نیست.");
+    peer = new MeteredPeerClass({ apiKey: METERED_API_KEY });
     registerMeteredEvents();
     await peer.join("room-" + roomCode);
     myID = peer.peerId || "";
@@ -463,7 +464,7 @@ function registerMeteredEvents(){
     announcePresence();
   });
 
-  peer.on("peer-left", remote=>{
+  peer.on("peer-left", ({peer: remote})=>{
     const id = remote && (remote.id || remote.peerId);
     if(id){ delete remotePeers[id]; delete players[id]; removeAudio(id); updatePlayers(); log("یک کاربر از روم خارج شد."); }
   });
@@ -479,7 +480,11 @@ function registerMeteredEvents(){
   });
 
   peer.on("state-change", ({from,to})=> log("وضعیت اتصال: " + from + " → " + to));
-  peer.on("error", error=>{ log("خطای Metered: " + (error.message || error)); setStatus("خطا در اتصال؛ کنسول را بررسی کنید."); });
+  peer.on("error", event=>{
+    const error = event && event.err ? event.err : event;
+    log("خطای Metered: " + (error && (error.message || error.name) ? (error.message || error.name) : String(error)));
+    setStatus("خطا در اتصال؛ کنسول را بررسی کنید.");
+  });
   peer.on("stream-added", ({stream, metadata})=>{
     const id = metadata && metadata.peerId ? metadata.peerId : "remote-" + Math.random().toString(36).slice(2);
     playAudio(id, stream);
