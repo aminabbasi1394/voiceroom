@@ -71,7 +71,7 @@ h1,h2,h3{margin-top:0}
 .online-list{display:flex;flex-direction:column;gap:12px;margin-top:18px}.online-room{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px;background:#121c31;border:1px solid #334263;border-radius:16px}.online-dot{width:11px;height:11px;flex:0 0 11px;border-radius:50%;background:#45e68b;box-shadow:0 0 12px #45e68b}.online-info{display:flex;align-items:center;gap:10px}
 .toast{position:fixed;z-index:2000;left:18px;bottom:18px;max-width:min(420px,calc(100% - 36px));padding:12px 15px;border:1px solid #39476a;border-radius:13px;background:#11192eeF;color:#d9def0;box-shadow:0 15px 40px #0007;transform:translateY(20px);opacity:0;pointer-events:none;transition:.2s}.toast.show{transform:translateY(0);opacity:1}
 .loading-inline{font-size:12px;color:#aeb8cc;min-height:22px;margin-top:8px}
-.room-visibility{display:flex;gap:9px;margin-top:12px}.visibility-option{flex:1;padding:12px;border:1px solid #30384e;border-radius:11px;background:#1a2131;color:#bfc7db;cursor:pointer;text-align:center;font-size:12px}.visibility-option.active{border-color:#7180ff;background:#27305a;color:#fff}.password-help{font-size:11px;color:#8d99af;line-height:1.8;margin-top:7px}.public-section{max-width:720px;margin:22px auto 0;padding:24px}.public-section h3{color:#a9b5ff;margin-bottom:6px}.public-room{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px;background:#121c31;border:1px solid #334263;border-radius:14px}.public-room-main{min-width:0}.public-room-title{font-weight:700}.public-room-meta{font-size:11px;color:#8d99af;margin-top:5px}.public-room button{flex:0 0 auto}.public-empty{font-size:12px;color:#8d99af;padding:12px 0}.public-refresh{font-size:11px;color:#9ca8bf;margin-top:10px}
+.room-visibility{display:flex;gap:9px;margin-top:12px}.visibility-option{flex:1;padding:12px;border:1px solid #30384e;border-radius:11px;background:#1a2131;color:#bfc7db;cursor:pointer;text-align:center;font-size:12px}.visibility-option.active{border-color:#7180ff;background:#27305a;color:#fff}.password-help{font-size:11px;color:#8d99af;line-height:1.8;margin-top:7px}.private-room-card{max-width:720px;margin:22px auto 0;padding:24px}.public-section{max-width:720px;margin:22px auto 0;padding:24px}.public-section h3{color:#a9b5ff;margin-bottom:6px}.public-room{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px;background:#121c31;border:1px solid #334263;border-radius:14px}.public-room-main{min-width:0}.public-room-title{font-weight:700}.public-room-meta{font-size:11px;color:#8d99af;margin-top:5px}.public-room button{flex:0 0 auto}.public-empty{font-size:12px;color:#8d99af;padding:12px 0}.public-refresh{font-size:11px;color:#9ca8bf;margin-top:10px}
 #app{display:none}
 
 @media(max-width:820px){
@@ -88,6 +88,7 @@ h1,h2,h3{margin-top:0}
   <div class="nav-brand">🎙️ VoiceRoom</div>
   <div class="nav-links">
     <button class="nav-button" data-page="home">🏠 خانه</button>
+    <button class="nav-button" data-page="private">🔒 روم‌های خصوصی</button>
     <button class="nav-button" data-page="online">🟢 روم آنلاین</button>
     <button class="nav-button" data-page="account">👤 حساب</button>
     <button class="nav-button" data-page="about">ℹ️ درباره</button>
@@ -106,15 +107,27 @@ h1,h2,h3{margin-top:0}
         <input id="name" autocomplete="nickname" placeholder="مثلاً امیر">
         <div class="form-title">کد روم</div>
         <input id="room" autocomplete="off" placeholder="مثلاً room123">
-        <div class="form-title">رمز روم (اگر خصوصی است)</div>
-        <input id="joinRoomPassword" type="password" autocomplete="off" placeholder="برای روم عمومی خالی بگذار">
-
         <div class="form-row">
           <button id="createRoomBtn" class="primary" type="button">🏠 ساخت روم</button>
           <button id="joinRoomBtn" class="secondary" type="button">🚪 ورود</button>
         </div>
         <div id="status" class="status">کد روم باید با حرف انگلیسی شروع شود.</div>
         <div id="homeLoading" class="loading-inline"></div>
+      </section>
+
+      <section id="privateRoomCard" class="card private-room-card hidden">
+        <div class="logo">🔒</div>
+        <h2>روم خصوصی</h2>
+        <div class="subtitle">برای ورود به یک روم خصوصی، کد روم و رمز آن را وارد کن.</div>
+        <div class="form-title">کد روم</div>
+        <input id="privateJoinRoom" autocomplete="off" placeholder="مثلاً room123">
+        <div class="form-title">رمز روم</div>
+        <input id="privateJoinPassword" type="password" autocomplete="off" placeholder="رمز روم خصوصی">
+        <div class="form-row">
+          <button id="privateBackBtn" class="secondary" type="button">↩️ برگشت</button>
+          <button id="privateJoinBtn" class="primary" type="button">🔐 ورود به روم</button>
+        </div>
+        <div id="privateJoinStatus" class="status"></div>
       </section>
 
       <section id="roomSetupScreen" class="card setup-card hidden">
@@ -296,7 +309,8 @@ const state = {
   speakingTimer:null,
   audioContext:null,
   analyser:null,
-  joining:false
+  joining:false,
+  privateJoinMode:false
 };
 
 const $ = id => document.getElementById(id);
@@ -390,25 +404,27 @@ function populateCapacitySelect(){
 
 function setBusy(busy,text){
   state.joining=busy;
-    ["createRoomBtn","joinRoomBtn","confirmCreateBtn","backLoginBtn"].forEach(id=>{
+  ["createRoomBtn","joinRoomBtn","confirmCreateBtn","backLoginBtn"].forEach(id=>{
     const el=$(id); if(el) el.disabled=busy;
   });
   if($("homeLoading")) $("homeLoading").textContent=busy?(text||"در حال اتصال..."):"";
 }
 
 function navigateTo(page){
-  const valid=["home","online","account","about"];
+  const valid=["home","private","online","account","about"];
   if(!valid.includes(page)) page="home";
+  const actualPage=page==="private"?"home":page;
 
   document.querySelectorAll(".page").forEach(el=>el.classList.remove("active"));
-  const target=$(page+"Page");
+  const target=$(actualPage+"Page");
   if(target) target.classList.add("active");
 
   document.querySelectorAll(".nav-button").forEach(btn=>btn.classList.toggle("active",btn.dataset.page===page));
 
-  if(page==="home") renderHomeRoomCard();
-  if(page==="online") renderOnlinePage();
-  if(page==="account") refreshAccount();
+  if(actualPage==="home") renderHomeRoomCard();
+  if(page==="private") showPrivateRoomCard();
+  if(actualPage==="online") renderOnlinePage();
+  if(actualPage==="account") refreshAccount();
 }
 
 function renderHomeRoomCard(){
@@ -452,6 +468,36 @@ function hideRoomSetup(){
   $("roomSetupScreen").classList.add("hidden");
 }
 
+function showPrivateRoomCard(){
+  hideRoomSetup();
+  $("loginScreen").classList.add("hidden");
+  $("homeRoomCard").classList.add("hidden");
+  $("privateRoomCard").classList.remove("hidden");
+  $("privateJoinStatus").textContent="";
+}
+
+function hidePrivateRoomCard(){
+  $("privateRoomCard").classList.add("hidden");
+}
+
+async function joinPrivateRoomFromMenu(){
+  const name=$("name").value.trim();
+  const code=$("privateJoinRoom").value.trim();
+  const password=$("privateJoinPassword").value;
+  if(!name){ $("privateJoinStatus").textContent="ابتدا نام خود را در بخش خانه وارد کن."; return; }
+  if(!code){ $("privateJoinStatus").textContent="کد روم را وارد کن."; $("privateJoinRoom").focus(); return; }
+  if(!password){ $("privateJoinStatus").textContent="رمز روم را وارد کن."; $("privateJoinPassword").focus(); return; }
+  try{ state.roomCode=normalizeRoomCode(code); }catch(error){ $("privateJoinStatus").textContent=error.message; return; }
+  state.myName=name;
+  state.roomPassword=password;
+  state.isHost=false;
+  state.hostID="";
+  state.players={};
+  state.privateJoinMode=true;
+  setBusy(true,"در حال اتصال به روم خصوصی...");
+  try{ await connectToRoom(false); }finally{ if(!state.roomJoined) setBusy(false,""); }
+}
+
 function createRoom(){
   if(state.joining || state.roomJoined) return;
   const name=$("name").value.trim();
@@ -459,6 +505,7 @@ function createRoom(){
   try{ state.roomCode=normalizeRoomCode($("room").value); }
   catch(error){ setStatus(error.message); $("room").focus(); return; }
   state.myName=name;
+  state.privateJoinMode=false;
   $("setupName").textContent=name;
   $("setupRoom").textContent=state.roomCode;
   setSetupStatus("ظرفیت و نوع روم را انتخاب کن و بعد روی ساخت روم بزن.");
@@ -504,7 +551,7 @@ async function joinRoom(){
   try{ state.roomCode=normalizeRoomCode($("room").value); }
   catch(error){ setStatus(error.message); $("room").focus(); return; }
   state.myName=name;
-  state.roomPassword=$("joinRoomPassword").value;
+  state.roomPassword="";
   state.isHost=false;
   state.hostID="";
   state.players={};
@@ -663,8 +710,8 @@ function handleMeteredData({senderPeerId,data}={}){
     if(data.players&&typeof data.players==="object") state.players={...data.players};
     if(state.roomVisibility==="private") {
       if(state.guestAuthSent) return;
-      const password=String($("joinRoomPassword")?.value||"");
-      if(!password){ setBusy(false,""); setStatus("این روم خصوصی است؛ رمز روم را وارد کن و دوباره ورود را بزن."); clearGuestTimeout(); return; }
+      const password=String(state.privateJoinMode?$("privateJoinPassword")?.value||"":state.roomPassword||"");
+      if(!password){ setBusy(false,""); setStatus("این روم خصوصی است؛ از منوی «روم‌های خصوصی» وارد شو و رمز را وارد کن."); clearGuestTimeout(); return; }
       state.guestAuthSent=true;
       state.peer.sendTo(state.hostID,{type:"room-auth",password}).catch(error=>{state.guestAuthSent=false;log(`ارسال رمز روم ناموفق بود: ${error.message||error}`);});
       setStatus("رمز ارسال شد؛ منتظر تأیید میزبان هستیم...");
@@ -831,6 +878,21 @@ function startPublicLobby(isHost){
 }
 
 function wireLobbyEvents(peer){
+  peer.on("peer-joined",({peer:remote}={})=>{
+    if(!remote||!state.lobbyPeer) return;
+    if(state.isHost&&state.roomJoined&&state.roomVisibility==="public"){
+      const payload={type:"public-room",code:state.roomCode,hostID:state.myID,hostName:state.myName,maxPlayers:state.maxPlayers};
+      state.lobbyPeer.sendTo(String(remote.id),payload).catch(()=>{});
+    }
+  });
+  peer.on("peer-left",({peer:remote}={})=>{
+    if(!remote) return;
+    const hostID=String(remote.id||"");
+    Object.keys(state.publicRooms).forEach(code=>{
+      if(String(state.publicRooms[code]?.hostID||"")===hostID) delete state.publicRooms[code];
+    });
+    renderPublicRooms();
+  });
   peer.on("data",({senderPeerId,data}={})=>{
     if(!data||typeof data!=="object") return;
     if(data.type==="public-room") {
@@ -1110,6 +1172,7 @@ async function leaveRoom(notify,reason){
   state.guestRejected=false;
   state.roomVisibility="public";
   state.roomPassword="";
+  state.privateJoinMode=false;
   state.handRaised=false;
   state.speaking=false;
   state.peer=await closePeer(state.peer);
@@ -1227,7 +1290,7 @@ document.addEventListener("click",event=>{
   if(publicRoom){
     const code=decodeURIComponent(publicRoom.dataset.publicRoom||"");
     $("room").value=code;
-    $("joinRoomPassword").value="";
+    hidePrivateRoomCard();
     navigateTo("home");
     joinRoom();
   }
@@ -1251,6 +1314,8 @@ document.addEventListener("click",event=>{
   }
 });
 
+$("privateJoinBtn").addEventListener("click",joinPrivateRoomFromMenu);
+$("privateBackBtn").addEventListener("click",()=>{ hidePrivateRoomCard(); navigateTo("home"); });
 $("createRoomBtn").addEventListener("click",createRoom);
 $("joinRoomBtn").addEventListener("click",joinRoom);
 $("backLoginBtn").addEventListener("click",backToLogin);
