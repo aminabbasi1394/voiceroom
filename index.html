@@ -390,4 +390,905 @@ function populateCapacitySelect(){
 
 function setBusy(busy,text){
   state.joining=busy;
-  ["createRoo
+    ["createRoomBtn","joinRoomBtn","confirmCreateBtn","backLoginBtn"].forEach(id=>{
+    const el=$(id); if(el) el.disabled=busy;
+  });
+  if($("homeLoading")) $("homeLoading").textContent=busy?(text||"در حال اتصال..."):"";
+}
+
+function navigateTo(page){
+  const valid=["home","online","account","about"];
+  if(!valid.includes(page)) page="home";
+
+  document.querySelectorAll(".page").forEach(el=>el.classList.remove("active"));
+  const target=$(page+"Page");
+  if(target) target.classList.add("active");
+
+  document.querySelectorAll(".nav-button").forEach(btn=>btn.classList.toggle("active",btn.dataset.page===page));
+
+  if(page==="home") renderHomeRoomCard();
+  if(page==="online") renderOnlinePage();
+  if(page==="account") refreshAccount();
+}
+
+function renderHomeRoomCard(){
+  const loggedIn=state.roomJoined;
+  $("loginScreen").classList.toggle("hidden",loggedIn);
+  $("homeRoomCard").classList.toggle("hidden",!loggedIn);
+  $("roomSetupScreen").classList.add("hidden");
+  if(loggedIn) $("homeRoomCode").textContent=state.roomCode||"-";
+  renderPublicRooms();
+}
+
+function renderOnlinePage(){
+  const inRoom=state.roomJoined;
+  $("app").style.display=inRoom?"block":"none";
+  $("onlineEmptyCard").classList.toggle("hidden",inRoom);
+  if(inRoom){
+    $("roomTitle").textContent=`${state.roomVisibility==="private"?"🔒":"🌐"} روم: ${state.roomCode} • ${state.maxPlayers} نفر`;
+    updateInviteLink();
+  }
+  refreshOnlineRooms();
+}
+
+function showLogin(){
+  hideRoomSetup();
+  renderHomeRoomCard();
+  navigateTo("home");
+}
+
+function showApp(){
+  hideRoomSetup();
+  renderOnlinePage();
+  navigateTo("online");
+}
+
+function showRoomSetup(){
+  $("loginScreen").classList.add("hidden");
+  $("roomSetupScreen").classList.remove("hidden");
+}
+
+function hideRoomSetup(){
+  $("roomSetupScreen").classList.add("hidden");
+}
+
+function createRoom(){
+  if(state.joining || state.roomJoined) return;
+  const name=$("name").value.trim();
+  if(!name){ setStatus("لطفاً نام خود را وارد کنید."); $("name").focus(); return; }
+  try{ state.roomCode=normalizeRoomCode($("room").value); }
+  catch(error){ setStatus(error.message); $("room").focus(); return; }
+  state.myName=name;
+  $("setupName").textContent=name;
+  $("setupRoom").textContent=state.roomCode;
+  setSetupStatus("ظرفیت و نوع روم را انتخاب کن و بعد روی ساخت روم بزن.");
+  state.roomVisibility="public";
+  state.roomPassword="";
+  $("publicRoomOption").classList.add("active");
+  $("privateRoomOption").classList.remove("active");
+  $("privatePasswordWrap").classList.add("hidden");
+  $("roomPassword").value="";
+  populateCapacitySelect();
+  showRoomSetup();
+}
+
+function backToLogin(){
+  if(state.joining) return;
+  hideRoomSetup();
+  $("loginScreen").classList.remove("hidden");
+}
+
+async function confirmCreateRoom(){
+  if(state.joining) return;
+  const selected=Math.max(MIN_MAX_PLAYERS,Math.min(MAX_MAX_PLAYERS,Number($("maxPlayersSelect").value)||DEFAULT_MAX_PLAYERS));
+  state.maxPlayers=selected;
+  state.roomVisibility=$("privateRoomOption").classList.contains("active")?"private":"public";
+  state.roomPassword=$("roomPassword").value.trim();
+  if(state.roomVisibility==="private" && state.roomPassword.length<1){ setSetupStatus("برای روم خصوصی یک رمز انتخاب کن."); $("roomPassword").focus(); return; }
+  state.isHost=true;
+  state.hostID="";
+  state.players={};
+  setBusy(true,"در حال ساخت روم و اتصال به سرور...");
+  hideRoomSetup();
+  try{
+    await connectToRoom(true);
+  }finally{
+    if(!state.roomJoined) setBusy(false,"");
+  }
+}
+
+async function joinRoom(){
+  if(state.joining || state.roomJoined) return;
+  const name=$("name").value.trim();
+  if(!name){ setStatus("لطفاً نام خود را وارد کنید."); $("name").focus(); return; }
+  try{ state.roomCode=normalizeRoomCode($("room").value); }
+  catch(error){ setStatus(error.message); $("room").focus(); return; }
+  state.myName=name;
+  state.roomPassword=$("joinRoomPassword").value;
+  state.isHost=false;
+  state.hostID="";
+  state.players={};
+  setBusy(true,"در حال بررسی روم و پیدا کردن میزبان...");
+  try{
+    await connectToRoom(false);
+  }finally{
+    if(!state.roomJoined) setBusy(false,"");
+  }
+}
+
+function makeMeteredPeer(){
+  if(!window.MeteredPeer) throw new Error("کتابخانه Metered بارگذاری نشده است.");
+  if(!METERED_API_KEY || METERED_API_KEY.includes("REPLACE_WITH")) throw new Error("کلید Publishable Metered هنوز داخل کد قرار نگرفته است.");
+  const PeerClass=window.MeteredPeer.MeteredPeer||window.MeteredPeer;
+  if(typeof PeerClass!=="function") throw new Error("کلاس MeteredPeer پیدا نشد.");
+  return new PeerClass({apiKey:METERED_API_KEY});
+}
+
+async function connectToRoom(hostMode){
+  await cleanupPeer(false);
+  state.isHost=hostMode;
+  state.guestRejected=false;
+  state.guestConfirmed=false;
+  state.guestAuthSent=false;
+  state.players={};
+  setStatus(hostMode?"در حال ساخت روم...":"در حال اتصال به روم...");
+  log(`شروع اتصال به ${hostMode?"عنوان میزبان":"عنوان مهمان"}.`);
+
+  try{
+    state.peer=makeMeteredPeer();
+    wirePeerEvents(state.peer);
+    await state.peer.join(`voiceroom-${state.roomCode}`);
+
+    state.roomJoined=true;
+    state.myID=String(state.peer.peerId||"");
+    if(!state.myID) throw new Error("شناسه کاربر از Metered دریافت نشد.");
+
+    if(hostMode){
+      state.hostID=state.myID;
+      registerLocalPlayer();
+      showApp();
+      setBusy(false,"");
+      setStatus("");
+      addSystem("روم با موفقیت ساخته شد ✅");
+      log(`روم ${state.roomCode} آماده است.`);
+      await broadcastRoomInfo();
+      if(state.roomVisibility==="public") startPublicLobby(true);
+    }else{
+      setStatus("روم پیدا شد؛ منتظر تأیید میزبان هستیم...");
+      log("اتصال اولیه برقرار شد؛ منتظر اطلاعات میزبان هستیم.");
+      startGuestTimeout();
+    }
+  }catch(error){
+    log(`اتصال ناموفق: ${error?.message||error}`);
+    setStatus(`اتصال انجام نشد: ${error?.message||"خطای ناشناخته"}`);
+    await cleanupPeer(false);
+    state.roomJoined=false;
+    state.isHost=false;
+    state.hostID="";
+    setBusy(false,"");
+    showLogin();
+  }
+}
+
+function startGuestTimeout(){
+  clearGuestTimeout();
+  state.guestTimer=setTimeout(()=>{
+    if(!state.guestConfirmed&&!state.guestRejected){
+      rejectGuestJoin("این روم وجود ندارد یا میزبان در آن حضور ندارد.");
+    }
+  },GUEST_WAIT_MS);
+}
+
+function clearGuestTimeout(){
+  if(state.guestTimer){clearTimeout(state.guestTimer);state.guestTimer=null;}
+}
+
+function wirePeerEvents(peer){
+  peer.on("peer-joined",({peer:remote})=>handlePeerJoined(remote));
+  peer.on("peer-left",({peer:remote})=>handlePeerLeft(remote));
+  peer.on("data",handleMeteredData);
+  peer.on("state-change",({to})=>{
+    log(`وضعیت اتصال: ${to}`);
+    if(to==="reconnecting") setStatus("ارتباط قطع شد؛ در حال اتصال مجدد...");
+    if(to==="joined" && state.roomJoined) setStatus("");
+    if(to==="closed" && state.roomJoined) setStatus("ارتباط بسته شد.");
+  });
+  peer.on("error",({err}={})=>{
+    const message=err?.message||String(err||"خطای ناشناخته");
+    log(`خطای Metered: ${message}`);
+    if(!state.guestRejected) setStatus(`خطای اتصال: ${message}`);
+  });
+}
+
+function handlePeerJoined(remote){
+  if(!remote || !remote.id || !state.peer) return;
+  const id=String(remote.id);
+  state.remotePeers[id]=remote;
+  wireRemotePeer(remote);
+  log(`کاربر جدید در کانال: ${id}`);
+
+  if(state.isHost){
+    if(Object.keys(state.players).length>=state.maxPlayers){
+      state.peer.sendTo(id,{type:"roomFull"}).catch(()=>{});
+      log(`ظرفیت تکمیل است؛ درخواست ${id} رد شد.`);
+      return;
+    }
+    if(state.roomVisibility==="private") {
+      state.peer.sendTo(id,{type:"room-info",hostID:state.hostID,maxPlayers:state.maxPlayers,visibility:"private",players:state.players}).catch(error=>log(`ارسال اطلاعات روم ناموفق بود: ${error.message||error}`));
+      return;
+    }
+    state.players[id]={id,name:"کاربر",host:false,handRaised:false,speaking:false};
+    renderPlayers();
+    state.peer.sendTo(id,{type:"room-info",hostID:state.hostID,maxPlayers:state.maxPlayers,visibility:"public",players:state.players}).catch(error=>log(`ارسال اطلاعات روم ناموفق بود: ${error.message||error}`));
+    broadcastRoomInfo();
+  }
+}
+
+function handlePeerLeft(remote){
+  const id=String(remote?.id||"");
+  if(!id) return;
+  log(`کاربر خارج شد: ${id}`);
+  const wasCurrentHost=!state.isHost && id===state.hostID;
+  removeRemote(id);
+  if(wasCurrentHost){
+    addSystem("میزبان روم از دسترس خارج شد.");
+    leaveRoom(false,"میزبان روم از دسترس خارج شد.");
+    return;
+  }
+  if(state.isHost) broadcastRoomInfo();
+}
+
+function wireRemotePeer(remote){
+  if(!remote||remote.__voiceroomWired) return;
+  remote.__voiceroomWired=true;
+  remote.on("stream-added",({stream})=>playRemoteAudio(remote.id,stream));
+  remote.on("stream-removed",({stream})=>removeRemoteAudio(remote.id,stream));
+  remote.on("state-change",({to})=>log(`وضعیت ${remote.id}: ${to}`));
+}
+
+function handleMeteredData({senderPeerId,data}={}){
+  if(!data||typeof data!=="object") return;
+  const sender=String(senderPeerId||"");
+
+  if(data.type==="roomFull"){
+    if(!state.isHost) rejectGuestJoin("این روم پر است؛ ظرفیت تکمیل شده.");
+    return;
+  }
+
+  if(data.type==="room-info"){
+    if(state.isHost||state.guestRejected) return;
+    state.hostID=String(data.hostID||sender);
+    if(Number.isFinite(Number(data.maxPlayers))) state.maxPlayers=Math.max(MIN_MAX_PLAYERS,Math.min(MAX_MAX_PLAYERS,Number(data.maxPlayers)));
+    state.roomVisibility=data.visibility==="private"?"private":"public";
+    if(data.players&&typeof data.players==="object") state.players={...data.players};
+    if(state.roomVisibility==="private") {
+      if(state.guestAuthSent) return;
+      const password=String($("joinRoomPassword")?.value||"");
+      if(!password){ setBusy(false,""); setStatus("این روم خصوصی است؛ رمز روم را وارد کن و دوباره ورود را بزن."); clearGuestTimeout(); return; }
+      state.guestAuthSent=true;
+      state.peer.sendTo(state.hostID,{type:"room-auth",password}).catch(error=>{state.guestAuthSent=false;log(`ارسال رمز روم ناموفق بود: ${error.message||error}`);});
+      setStatus("رمز ارسال شد؛ منتظر تأیید میزبان هستیم...");
+      return;
+    }
+    confirmGuestRoom(data);
+    return;
+  }
+
+  if(data.type==="room-auth") {
+    if(!state.isHost||sender===state.myID||state.roomVisibility!=="private") return;
+    if(String(data.password||"")===state.roomPassword){
+      if(!state.players[sender] && Object.keys(state.players).length>=state.maxPlayers){
+        state.peer.sendTo(sender,{type:"roomFull"}).catch(()=>{});
+        return;
+      }
+      const info={type:"room-auth-ok",hostID:state.hostID,maxPlayers:state.maxPlayers,visibility:state.roomVisibility,players:state.players};
+      state.peer.sendTo(sender,info).catch(error=>log(`تأیید رمز ناموفق بود: ${error.message||error}`));
+      if(!state.players[sender]) state.players[sender]={id:sender,name:"کاربر",host:false,handRaised:false,speaking:false};
+      renderPlayers();
+      broadcastRoomInfo();
+    }else{
+      state.peer.sendTo(sender,{type:"room-auth-fail"}).catch(()=>{});
+      log(`رمز اشتباه برای درخواست ${sender}.`);
+    }
+    return;
+  }
+
+  if(data.type==="room-auth-ok") {
+    if(state.isHost||state.guestRejected) return;
+    state.hostID=String(data.hostID||sender);
+    state.maxPlayers=Number(data.maxPlayers)||state.maxPlayers;
+    state.roomVisibility="private";
+    state.players=data.players&&typeof data.players==="object"?{...data.players}:state.players;
+    if(!state.players[state.myID]) registerLocalPlayer();
+    Object.values(state.players).forEach(player=>player.host=player.id===state.hostID);
+    confirmGuestRoom(data);
+    return;
+  }
+
+  if(data.type==="room-auth-fail") {
+    if(state.isHost) return;
+    state.guestAuthSent=false;
+    setBusy(false,"");
+    setStatus("رمز روم اشتباه است.");
+    toast("رمز روم اشتباه است ❌");
+    return;
+  }
+
+  if(data.type==="hello"){
+    if(!state.isHost||sender===state.myID) return;
+    const player=state.players[sender]||{id:sender,host:false,handRaised:false,speaking:false};
+    player.name=String(data.name||"کاربر");
+    state.players[sender]=player;
+    renderPlayers();
+    broadcastRoomInfo();
+    return;
+  }
+
+  if(data.type==="players"){
+    if(state.isHost) return;
+    if(data.players&&typeof data.players==="object") state.players={...data.players};
+    renderPlayers();
+    return;
+  }
+
+  if(data.type==="message"){
+    if(sender!==state.myID) addMessage(String(data.name||"کاربر"),String(data.message||""));
+    return;
+  }
+
+  if(data.type==="reaction"){
+    showReaction(String(data.name||"کاربر"),String(data.emoji||""));
+    return;
+  }
+
+  if(data.type==="hand"){
+    if(state.players[sender]) state.players[sender].handRaised=!!data.raised;
+    renderPlayers();
+    return;
+  }
+
+  if(data.type==="speaking"){
+    if(state.players[sender]) state.players[sender].speaking=!!data.speaking;
+    renderPlayers();
+    return;
+  }
+
+  if(data.type==="forceMute"){
+    stopMicrophone(true);
+    addSystem("میزبان میکروفون شما را خاموش کرد.");
+    return;
+  }
+
+  if(data.type==="kick"){
+    const reason=String(data.reason||"توسط میزبان از روم اخراج شدید.");
+    addSystem(reason);
+    leaveRoom(false,reason);
+    return;
+  }
+
+  if(data.type==="hostTransfer"){
+    applyHostTransfer(String(data.hostID||""));
+    return;
+  }
+
+  if(data.type==="hostLeft"){
+    addSystem("میزبان روم را ترک کرد.");
+    leaveRoom(false,"میزبان روم را ترک کرد.");
+  }
+}
+
+function confirmGuestRoom(data){
+  if(state.isHost||state.guestRejected) return;
+  state.guestConfirmed=true;
+  clearGuestTimeout();
+  setBusy(false,"");
+  setStatus("");
+  renderPlayers();
+  showApp();
+  addSystem("با موفقیت وارد روم شدید ✅");
+  log("میزبان وجود روم را تأیید کرد ✅");
+  sendHello();
+}
+
+function sendHello(){
+  if(!state.peer||!state.roomJoined||!state.hostID||state.hostID===state.myID) return;
+  state.peer.sendTo(state.hostID,{type:"hello",name:state.myName}).catch(error=>log(`ارسال نام کاربر ناموفق بود: ${error.message||error}`));
+}
+
+async function broadcastRoomInfo(){
+  if(!state.peer||!state.roomJoined||!state.isHost) return;
+  const payload={type:"room-info",hostID:state.hostID,maxPlayers:state.maxPlayers,visibility:state.roomVisibility,players:state.players};
+  try{await state.peer.send(payload);}catch(error){log(`پخش اطلاعات روم ناموفق بود: ${error.message||error}`);}
+}
+
+function renderPublicRooms(){
+  const list=$("publicRoomsList");
+  const status=$("publicRoomsStatus");
+  if(!list) return;
+  const now=Date.now();
+  Object.keys(state.publicRooms).forEach(code=>{ if(now-state.publicRooms[code].updatedAt>PUBLIC_ROOM_TTL_MS) delete state.publicRooms[code]; });
+  const rooms=Object.values(state.publicRooms).sort((a,b)=>b.updatedAt-a.updatedAt);
+  list.innerHTML="";
+  if(!rooms.length){ list.innerHTML='<div class="public-empty">فعلاً روم عمومی فعالی پیدا نشد.</div>'; }
+  rooms.forEach(room=>{
+    const row=document.createElement("div");
+    row.className="public-room";
+    row.innerHTML=`<div class="public-room-main"><div class="public-room-title">🌐 ${escapeHTML(room.code)}</div><div class="public-room-meta">👤 ${escapeHTML(room.hostName||"میزبان")} • ظرفیت ${Number(room.maxPlayers)||5} نفر</div></div><button type="button" class="primary" data-public-room="${encodeURIComponent(room.code)}">ورود</button>`;
+    list.appendChild(row);
+  });
+  if(status) status.textContent=rooms.length?`${rooms.length} روم عمومی فعال است.`:"در حال بررسی روم‌های عمومی...";
+}
+
+function startPublicLobby(isHost){
+  stopPublicLobby();
+  try{
+    state.lobbyPeer=makeMeteredPeer();
+    wireLobbyEvents(state.lobbyPeer);
+    state.lobbyPeer.join(PUBLIC_LOBBY_CHANNEL).then(()=>{
+      if(isHost) advertisePublicRoom();
+    }).catch(error=>log(`اتصال به لابی عمومی ناموفق بود: ${error.message||error}`));
+  }catch(error){ log(`راه‌اندازی لابی عمومی ناموفق بود: ${error.message||error}`); }
+}
+
+function wireLobbyEvents(peer){
+  peer.on("data",({senderPeerId,data}={})=>{
+    if(!data||typeof data!=="object") return;
+    if(data.type==="public-room") {
+      if(!data.code||data.hostID===state.lobbyPeer?.peerId) return;
+      state.publicRooms[String(data.code)]={...data,updatedAt:Date.now()};
+      renderPublicRooms();
+    }
+    if(data.type==="public-room-remove") { delete state.publicRooms[String(data.code||"")]; renderPublicRooms(); }
+  });
+}
+
+function advertisePublicRoom(){
+  if(!state.lobbyPeer||!state.isHost||state.roomVisibility!=="public"||!state.roomJoined) return;
+  const payload={type:"public-room",code:state.roomCode,hostID:state.myID,hostName:state.myName,maxPlayers:state.maxPlayers};
+  state.lobbyPeer.send(payload).catch(error=>log(`انتشار روم عمومی ناموفق بود: ${error.message||error}`));
+  clearInterval(state.lobbyTimer);
+  state.lobbyTimer=setInterval(()=>{
+    if(state.roomJoined&&state.isHost&&state.roomVisibility==="public") state.lobbyPeer?.send(payload).catch(()=>{});
+  },12000);
+}
+
+function stopPublicLobby(){
+  clearInterval(state.lobbyTimer); state.lobbyTimer=null;
+  if(state.lobbyPeer){ try{state.lobbyPeer.close();}catch(e){} state.lobbyPeer=null; }
+}
+
+function removePublicAdvertisement(){
+  if(!state.lobbyPeer||!state.isHost||state.roomVisibility!=="public") return;
+  state.lobbyPeer.send({type:"public-room-remove",code:state.roomCode}).catch(()=>{});
+}
+
+function registerLocalPlayer(){
+  state.players[state.myID]={id:state.myID,name:state.myName,host:state.myID===state.hostID,handRaised:state.handRaised,speaking:state.speaking};
+  renderPlayers();
+}
+
+function renderPlayers(){
+  const list=$("playersList");
+  if(!list) return;
+  list.innerHTML="";
+  const players=Object.values(state.players);
+  if(!players.length){
+    list.innerHTML='<div class="small">هنوز عضوی نمایش داده نشده است.</div>';
+    return;
+  }
+  players.forEach(player=>{
+    const row=document.createElement("div");
+    row.className=`player${player.speaking?" speaking":""}`;
+    const initial=String(player.name||"کاربر").trim().charAt(0).toUpperCase()||"؟";
+    row.innerHTML=`<div class="avatar">${escapeHTML(initial)}</div><div class="player-info"><div class="player-name">${escapeHTML(player.name||"کاربر")}${player.host?'<span class="crown"> 👑</span>':''} ${player.handRaised?'<span class="hand">✋</span>':''}</div><div class="player-status">${player.speaking?'<span class="speaking-dot">● در حال صحبت</span>':player.host?"میزبان":"عضو روم"}</div>${renderPlayerActions(player)}</div>`;
+    list.appendChild(row);
+  });
+}
+
+function renderPlayerActions(player){
+  if(!state.isHost||player.id===state.myID) return "";
+  const id=encodeURIComponent(player.id);
+  return `<div class="player-actions"><button type="button" data-host-action="mute" data-peer="${id}">🔇 میوت</button><button type="button" data-host-action="kick" data-peer="${id}">🚫 اخراج</button><button type="button" data-host-action="transfer" data-peer="${id}">👑 میزبانی</button></div>`;
+}
+
+function sendMessage(){
+  const input=$("message");
+  const message=input.value.trim();
+  if(!message||!state.peer||!state.roomJoined) return;
+  addMessage(state.myName,message);
+  state.peer.send({type:"message",name:state.myName,message}).catch(error=>log(`ارسال پیام ناموفق بود: ${error.message||error}`));
+  input.value="";
+  input.focus();
+}
+
+function addMessage(name,message){
+  const box=$("messages");
+  if(!box) return;
+  const div=document.createElement("div");
+  div.className="message";
+  div.innerHTML=`<b>${escapeHTML(name)}:</b> ${escapeHTML(message)}`;
+  box.appendChild(div);
+  box.scrollTop=box.scrollHeight;
+}
+
+function addSystem(message){
+  const text=String(message||"");
+  const box=$("messages");
+  if(box){
+    const div=document.createElement("div");
+    div.className="system";
+    div.textContent=`— ${text} —`;
+    box.appendChild(div);
+    box.scrollTop=box.scrollHeight;
+  }
+  log(text);
+}
+
+function showReaction(name,emoji){
+  const box=$("messages");
+  if(!box) return;
+  const div=document.createElement("div");
+  div.className="reaction-pop";
+  div.textContent=`${name} ${emoji}`;
+  box.appendChild(div);
+  box.scrollTop=box.scrollHeight;
+  setTimeout(()=>div.remove(),3500);
+}
+
+function sendReaction(emoji){
+  if(!state.peer||!state.roomJoined) return;
+  showReaction(state.myName,emoji);
+  state.peer.send({type:"reaction",name:state.myName,emoji}).catch(error=>log(`ارسال واکنش ناموفق بود: ${error.message||error}`));
+}
+
+async function toggleMic(){
+  if(!state.roomJoined){toast("ابتدا وارد یک روم شو.");return;}
+  if(state.microphoneEnabled){stopMicrophone(false);return;}
+  if(!navigator.mediaDevices?.getUserMedia){addSystem("این مرورگر دسترسی به میکروفون را پشتیبانی نمی‌کند.");return;}
+  try{
+    state.localStream=await navigator.mediaDevices.getUserMedia({audio:true,video:false});
+    state.microphoneEnabled=true;
+    state.localStream.getAudioTracks().forEach(track=>track.enabled=true);
+    try{state.peer.addStream(state.localStream,{role:"voice",label:"microphone"});}
+    catch(error){log(`اتصال میکروفون به WebRTC ناموفق بود: ${error.message||error}`);throw error;}
+    $("micBtn").textContent="🔇 خاموش کردن میکروفون";
+    addSystem("میکروفون فعال شد.");
+    startSpeakingDetector();
+  }catch(error){
+    stopMicrophone(true);
+    addSystem("دسترسی به میکروفون داده نشد.");
+    log(error?.message||error);
+  }
+}
+
+function stopMicrophone(silent){
+  stopSpeakingDetector();
+  if(state.localStream){
+    try{state.peer?.removeStream?.(state.localStream);}catch(e){}
+    state.localStream.getTracks().forEach(track=>track.stop());
+    state.localStream=null;
+  }
+  state.microphoneEnabled=false;
+  state.speaking=false;
+  if($("micBtn")) $("micBtn").textContent="🎤 میکروفون";
+  if(!silent && state.roomJoined) addSystem("میکروفون خاموش شد.");
+}
+
+function startSpeakingDetector(){
+  stopSpeakingDetector();
+  if(!state.localStream) return;
+  try{
+    const AudioContext=window.AudioContext||window.webkitAudioContext;
+    if(!AudioContext) return;
+    state.audioContext=new AudioContext();
+    const source=state.audioContext.createMediaStreamSource(state.localStream);
+    state.analyser=state.audioContext.createAnalyser();
+    state.analyser.fftSize=512;
+    source.connect(state.analyser);
+    const data=new Uint8Array(state.analyser.fftSize);
+    state.speakingTimer=setInterval(()=>{
+      if(!state.analyser||!state.microphoneEnabled){setLocalSpeaking(false);return;}
+      state.analyser.getByteTimeDomainData(data);
+      let sum=0;
+      for(const value of data){const normalized=(value-128)/128;sum+=normalized*normalized;}
+      setLocalSpeaking(Math.sqrt(sum/data.length)>0.035);
+    },120);
+  }catch(error){log("تشخیص صحبت در این مرورگر فعال نشد.");}
+}
+
+function stopSpeakingDetector(){
+  if(state.speakingTimer){clearInterval(state.speakingTimer);state.speakingTimer=null;}
+  if(state.audioContext){state.audioContext.close().catch(()=>{});state.audioContext=null;}
+  state.analyser=null;
+  setLocalSpeaking(false);
+}
+
+function setLocalSpeaking(value){
+  const next=!!value;
+  if(state.speaking===next) return;
+  state.speaking=next;
+  if(state.players[state.myID]) state.players[state.myID].speaking=next;
+  renderPlayers();
+  if(state.peer&&state.roomJoined) state.peer.send({type:"speaking",speaking:next}).catch(()=>{});
+}
+
+function toggleAudio(){
+  state.audioEnabled=!state.audioEnabled;
+  Object.values(state.remoteAudios).forEach(audio=>{
+    audio.muted=!state.audioEnabled;
+    if(state.audioEnabled) audio.play().catch(()=>{});
+  });
+  $("audioBtn").textContent=state.audioEnabled?"🔇 خاموش کردن صدا":"🔊 روشن کردن صدا";
+  addSystem(state.audioEnabled?"پخش صدا فعال شد.":"پخش صدا خاموش شد.");
+}
+
+function playRemoteAudio(id,stream){
+  if(!stream) return;
+  const key=String(id);
+  let audio=state.remoteAudios[key];
+  if(!audio){
+    audio=document.createElement("audio");
+    audio.autoplay=true;
+    audio.playsInline=true;
+    audio.controls=false;
+    audio.muted=!state.audioEnabled;
+    audio.dataset.voiceAudio="true";
+    audio.style.display="none";
+    document.body.appendChild(audio);
+    state.remoteAudios[key]=audio;
+  }
+  audio.srcObject=stream;
+  if(state.audioEnabled){
+    audio.play().catch(()=>toast("برای فعال‌کردن صدا یک بار روی «روشن کردن صدا» بزن."));
+  }
+}
+
+function removeRemoteAudio(id,stream){
+  const audio=state.remoteAudios[String(id)];
+  if(!audio) return;
+  if(!stream||audio.srcObject===stream){audio.srcObject=null;audio.remove();delete state.remoteAudios[String(id)];}
+}
+
+function removeRemote(id){
+  const key=String(id);
+  Object.values(state.remotePeers[key]?{[key]:state.remotePeers[key]}:{});
+  Object.values(state.remoteAudios).forEach((audio,index)=>{void index;});
+  removeRemoteAudio(key);
+  delete state.remotePeers[key];
+  delete state.players[key];
+  renderPlayers();
+}
+
+async function hostMute(id){
+  if(!state.isHost||!state.peer||!state.roomJoined) return;
+  try{await state.peer.sendTo(id,{type:"forceMute"});addSystem("دستور میوت ارسال شد.");}catch(error){log(`میوت ناموفق بود: ${error.message||error}`);}
+}
+
+async function hostKick(id){
+  if(!state.isHost||!state.peer||!state.roomJoined) return;
+  try{await state.peer.sendTo(id,{type:"kick",reason:"توسط میزبان از روم اخراج شدید."});}catch(error){log(`اخراج ناموفق بود: ${error.message||error}`);}
+}
+
+async function transferHost(id){
+  if(!state.isHost||!state.peer||!state.roomJoined||id===state.myID) return;
+  state.hostID=id;
+  state.isHost=false;
+  Object.values(state.players).forEach(player=>player.host=player.id===state.hostID);
+  renderPlayers();
+  try{await state.peer.send({type:"hostTransfer",hostID:id});await broadcastRoomInfo();addSystem("میزبانی به کاربر انتخاب‌شده منتقل شد 👑");}
+  catch(error){log(`انتقال میزبانی ناموفق بود: ${error.message||error}`);}
+}
+
+function applyHostTransfer(newHostID){
+  state.hostID=String(newHostID||"");
+  state.isHost=state.myID===state.hostID;
+  Object.values(state.players).forEach(player=>player.host=player.id===state.hostID);
+  renderPlayers();
+  if(state.isHost) addSystem("شما میزبان جدید شدید 👑");
+}
+
+async function leaveRoom(notify,reason){
+  if(!state.roomJoined&&!state.peer){navigateTo("home");return;}
+  const wasHost=state.isHost;
+  if(wasHost && state.roomVisibility==="public") removePublicAdvertisement();
+  stopPublicLobby();
+  try{
+    if(notify!==false&&wasHost&&state.peer&&state.roomJoined){await state.peer.send({type:"hostLeft"});}
+  }catch(e){}
+
+  stopMicrophone(true);
+  clearGuestTimeout();
+  Object.values(state.remoteAudios).forEach(audio=>{try{audio.srcObject=null;audio.remove();}catch(e){}});
+  state.remoteAudios={};
+  state.remotePeers={};
+  state.players={};
+  state.roomJoined=false;
+  state.myID="";
+  state.hostID="";
+  state.isHost=false;
+  state.guestConfirmed=false;
+  state.guestRejected=false;
+  state.roomVisibility="public";
+  state.roomPassword="";
+  state.handRaised=false;
+  state.speaking=false;
+  state.peer=await closePeer(state.peer);
+  $("handBtn").textContent="✋ دست بلند کردن";
+  $("audioBtn").textContent=state.audioEnabled?"🔇 خاموش کردن صدا":"🔊 روشن کردن صدا";
+  setBusy(false,"");
+  if(reason) setStatus(reason); else setStatus("از روم خارج شدید.");
+  navigateTo("home");
+  refreshOnlineRooms();
+}
+
+async function rejectGuestJoin(message){
+  state.guestRejected=true;
+  clearGuestTimeout();
+  await leaveRoom(false,message);
+  setStatus(message);
+}
+
+async function closePeer(peer){
+  if(!peer) return null;
+  try{await peer.close();}catch(e){try{peer.close();}catch(err){}}
+  return null;
+}
+
+async function cleanupPeer(clearRoom){
+  clearGuestTimeout();
+  stopMicrophone(true);
+  Object.values(state.remoteAudios).forEach(audio=>{try{audio.srcObject=null;audio.remove();}catch(e){}});
+  state.remoteAudios={};
+  state.remotePeers={};
+  if(state.peer) state.peer=await closePeer(state.peer);
+  if(clearRoom){
+    state.roomJoined=false;state.myID="";state.hostID="";state.isHost=false;state.players={};
+  }
+}
+
+function refreshOnlineRooms(){
+  const text=state.roomJoined?`روم <b>${escapeHTML(state.roomCode)}</b> • ظرفیت ${state.maxPlayers} نفر`:'هنوز وارد رومی نشده‌ای.';
+  const el=$("onlineEmptyCard");
+  if(el&&!state.roomJoined){
+    const p=el.querySelector(".subtitle");
+    if(p) p.innerHTML="هنوز وارد رومی نشده‌ای. از صفحه خانه یک روم بساز یا با کد روم وارد شو.";
+  }
+  if(state.roomJoined&&$("homeRoomCode")) $("homeRoomCode").textContent=state.roomCode;
+  void text;
+}
+
+function getAccount(){
+  try{return JSON.parse(localStorage.getItem("voiceroom_account")||"null");}catch(e){return null;}
+}
+
+function refreshAccount(){
+  const a=getAccount();
+  const box=$("accountPageCard");
+  if(!box) return;
+  box.innerHTML=a?`👤 <b>${escapeHTML(a.username)}</b><br>حساب شما روی همین مرورگر ذخیره شده است.`:"👤 حساب مهمان<br>هنوز حسابی روی این مرورگر ذخیره نشده است.";
+}
+
+function registerAccount(){
+  const username=$("accountUsername").value.trim();
+  const password=$("accountPassword").value;
+  if(username.length<3||password.length<4){toast("نام کاربری حداقل ۳ و رمز عبور حداقل ۴ کاراکتر باشد.");return;}
+  localStorage.setItem("voiceroom_account",JSON.stringify({username,password}));
+  $("name").value=username;
+  state.myName=username;
+  refreshAccount();
+  toast("ثبت نام انجام شد ✅");
+}
+
+function loginAccount(){
+  const account=getAccount();
+  const username=$("accountUsername").value.trim();
+  const password=$("accountPassword").value;
+  if(!account||account.username!==username||account.password!==password){toast("نام کاربری یا رمز عبور اشتباه است.");return;}
+  $("name").value=username;
+  state.myName=username;
+  refreshAccount();
+  toast("ورود به حساب انجام شد ✅");
+}
+
+function logoutAccount(){
+  localStorage.removeItem("voiceroom_account");
+  refreshAccount();
+  toast("از حساب خارج شدید.");
+}
+
+function loadRoomFromURL(){
+  if(!location.hash.startsWith("#room=")) return;
+  try{
+    const code=decodeURIComponent(location.hash.slice(6));
+    if(!code) return;
+    $("room").value=code;
+    setStatus("کد روم از لینک دعوت وارد شد.");
+  }catch(e){setStatus("لینک روم معتبر نیست.");}
+}
+
+function resetRoomURL(){
+  if(location.hash.startsWith("#room=")){history.replaceState(null,"",location.pathname+location.search);}
+}
+
+/* Events */
+
+$("publicRoomOption").addEventListener("click",()=>{
+  $("publicRoomOption").classList.add("active");
+  $("privateRoomOption").classList.remove("active");
+  $("privatePasswordWrap").classList.add("hidden");
+});
+$("privateRoomOption").addEventListener("click",()=>{
+  $("privateRoomOption").classList.add("active");
+  $("publicRoomOption").classList.remove("active");
+  $("privatePasswordWrap").classList.remove("hidden");
+});
+document.addEventListener("click",event=>{
+  const publicRoom=event.target.closest("[data-public-room]");
+  if(publicRoom){
+    const code=decodeURIComponent(publicRoom.dataset.publicRoom||"");
+    $("room").value=code;
+    $("joinRoomPassword").value="";
+    navigateTo("home");
+    joinRoom();
+  }
+});
+
+document.addEventListener("click",event=>{
+  const nav=event.target.closest(".nav-button");
+  if(nav){navigateTo(nav.dataset.page);return;}
+
+  const reaction=event.target.closest("[data-reaction]");
+  if(reaction){sendReaction(reaction.dataset.reaction);return;}
+
+  const action=event.target.closest("[data-host-action]");
+  if(action){
+    const id=decodeURIComponent(action.dataset.peer||"");
+    const type=action.dataset.hostAction;
+    if(type==="mute") hostMute(id);
+    else if(type==="kick") hostKick(id);
+    else if(type==="transfer") transferHost(id);
+    return;
+  }
+});
+
+$("createRoomBtn").addEventListener("click",createRoom);
+$("joinRoomBtn").addEventListener("click",joinRoom);
+$("backLoginBtn").addEventListener("click",backToLogin);
+$("confirmCreateBtn").addEventListener("click",confirmCreateRoom);
+$("homeBackToRoomBtn").addEventListener("click",()=>navigateTo("online"));
+$("homeLeaveRoomBtn").addEventListener("click",()=>leaveRoom(true,"از روم خارج شدید."));
+$("goHomeBtn").addEventListener("click",()=>navigateTo("home"));
+$("inviteBtn").addEventListener("click",copyInvite);
+$("copyInviteBtn").addEventListener("click",copyInvite);
+$("micBtn").addEventListener("click",toggleMic);
+$("audioBtn").addEventListener("click",toggleAudio);
+$("handBtn").addEventListener("click",()=>{
+  if(!state.roomJoined) return;
+  state.handRaised=!state.handRaised;
+  if(state.players[state.myID]) state.players[state.myID].handRaised=state.handRaised;
+  $("handBtn").textContent=state.handRaised?"✋ پایین آوردن دست":"✋ دست بلند کردن";
+  renderPlayers();
+  state.peer?.send({type:"hand",raised:state.handRaised}).catch(()=>{});
+});
+$("leaveRoomBtn").addEventListener("click",()=>leaveRoom(true,"از روم خارج شدید."));
+$("sendMessageBtn").addEventListener("click",sendMessage);
+$("message").addEventListener("keydown",event=>{if(event.key==="Enter") sendMessage();});
+$("registerAccountBtn").addEventListener("click",registerAccount);
+$("loginAccountBtn").addEventListener("click",loginAccount);
+$("logoutAccountBtn").addEventListener("click",logoutAccount);
+
+populateCapacitySelect();
+refreshAccount();
+loadRoomFromURL();
+navigateTo("home");
+startPublicLobby(false);
+
+window.addEventListener("beforeunload",()=>{
+  try{stopMicrophone(true);}catch(e){}
+  try{removePublicAdvertisement();}catch(e){}
+  try{stopPublicLobby();}catch(e){}
+  try{state.peer?.close?.();}catch(e){}
+});
+</script>
+</body>
+</html>
