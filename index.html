@@ -282,13 +282,14 @@ h1,h2,h3{margin-top:0}
 "use strict";
 
 /* فقط کلید Publishable Metered را اینجا قرار بده. کلید Secret را هرگز داخل HTML نگذار. */
-const METERED_API_KEY = "pk_live_c5fd9585879fec36158a127251bbab3415d93cdf";
+const METERED_API_KEY = "pk_live_REPLACE_WITH_YOUR_PUBLISHABLE_KEY";
 const DEFAULT_MAX_PLAYERS = 5;
 const MIN_MAX_PLAYERS = 2;
 const MAX_MAX_PLAYERS = 20;
 const GUEST_WAIT_MS = 7000;
 const PUBLIC_LOBBY_CHANNEL = "voiceroom-public-lobby-v1";
 const PUBLIC_ROOM_TTL_MS = 35000;
+const ROOM_REGISTRY_WAIT_MS = 1800;
 const PUBLIC_ROOM_PASSWORD = "0000";
 
 const state = {
@@ -321,7 +322,9 @@ const state = {
   audioContext:null,
   analyser:null,
   joining:false,
-  privateJoinMode:false
+  privateJoinMode:false,
+  roomCheckWaiters:[],
+  roomCheckCode:""
 };
 
 const $ = id => document.getElementById(id);
@@ -539,6 +542,16 @@ async function confirmCreateRoom(){
   state.roomPassword=$("roomPassword").value.trim();
   if(state.roomVisibility==="private" && state.roomPassword.length<1){ setSetupStatus("برای روم خصوصی یک رمز انتخاب کن."); $("roomPassword").focus(); return; }
   if(state.roomVisibility==="private" && state.roomPassword===PUBLIC_ROOM_PASSWORD){ setSetupStatus("رمز 0000 مخصوص روم‌های عمومی است و برای روم خصوصی قابل انتخاب نیست."); $("roomPassword").focus(); return; }
+  setBusy(true,"در حال بررسی کد روم...");
+  setSetupStatus("در حال بررسی کد روم، لطفاً صبر کنید...");
+  const existingRoom=await checkRoomExists(state.roomCode);
+  if(existingRoom){
+    setBusy(false,"");
+    setSetupStatus("این کد روم در حال حاضر استفاده شده است. یک کد دیگر انتخاب کن.");
+    setStatus("این روم از قبل وجود دارد و نمی‌توان دوباره با همین کد آن را ساخت. ❌");
+    toast("این کد روم قبلاً استفاده شده است ❌");
+    return;
+  }
   state.isHost=true;
   state.hostID="";
   state.players={};
@@ -559,6 +572,16 @@ async function joinRoom(){
   catch(error){ setStatus(error.message); $("room").focus(); return; }
   state.myName=name;
   state.roomPassword=$("roomJoinPassword")?.value.trim()||"";
+  setBusy(true,"در حال پیدا کردن روم...");
+  setStatus("در حال بررسی وجود روم و پیدا کردن میزبان، لطفاً صبر کنید...");
+  const existingRoom=await checkRoomExists(state.roomCode);
+  if(!existingRoom){
+    setBusy(false,"");
+    setStatus("این روم وجود ندارد یا میزبان آن آنلاین نیست. ❌");
+    toast("روم پیدا نشد ❌");
+    return;
+  }
+  state.roomVisibility=existingRoom.visibility==="private"?"private":"public";
   state.isHost=false;
   state.hostID="";
   state.players={};
@@ -607,7 +630,7 @@ async function connectToRoom(hostMode){
       addSystem("روم با موفقیت ساخته شد ✅");
       log(`روم ${state.roomCode} آماده است.`);
       await broadcastRoomInfo();
-      if(state.roomVisibility==="public") startPublicLobby(true);
+      startPublicLobby(true);
     }else{
       setStatus("روم پیدا شد؛ منتظر تأیید میزبان هستیم...");
       log("اتصال اولیه برقرار شد؛ منتظر اطلاعات میزبان هستیم.");
@@ -860,7 +883,7 @@ function renderPublicRooms(){
   if(!list) return;
   const now=Date.now();
   Object.keys(state.publicRooms).forEach(code=>{ if(now-state.publicRooms[code].updatedAt>PUBLIC_ROOM_TTL_MS) delete state.publicRooms[code]; });
-  const rooms=Object.values(state.publicRooms).sort((a,b)=>b.updatedAt-a.updatedAt);
+  const rooms=Object.values(state.publicRooms).filter(room=>room.visibility!=="private").sort((a,b)=>b.updatedAt-a.updatedAt);
   list.innerHTML="";
   if(!rooms.length){ list.innerHTML='<div class="public-empty">فعلاً روم عمومی فعالی پیدا نشد.</div>'; }
   rooms.forEach(room=>{
@@ -870,6 +893,30 @@ function renderPublicRooms(){
     list.appendChild(row);
   });
   if(status) status.textContent=rooms.length?`${rooms.length} روم عمومی فعال است.`:"در حال بررسی روم‌های عمومی...";
+}
+
+async function checkRoomExists(code){
+  const normalized=normalizeRoomCode(code);
+  const cached=state.publicRooms[normalized];
+  if(cached && Date.now()-Number(cached.updatedAt||0)<=PUBLIC_ROOM_TTL_MS) return cached;
+  if(!state.lobbyPeer){
+    try{ startPublicLobby(false); }catch(error){ log(`راه‌اندازی بررسی روم ناموفق بود: ${error.message||error}`); }
+  }
+  if(!state.lobbyPeer) return null;
+  state.roomCheckCode=normalized;
+  return await new Promise(resolve=>{
+    let settled=false;
+    const finish=value=>{
+      if(settled) return;
+      settled=true;
+      clearTimeout(timer);
+      state.roomCheckWaiters=state.roomCheckWaiters.filter(fn=>fn!==finish);
+      resolve(value);
+    };
+    const timer=setTimeout(()=>finish(null),ROOM_REGISTRY_WAIT_MS);
+    state.roomCheckWaiters.push(finish);
+    state.lobbyPeer.send({type:"room-query",code:normalized}).catch(()=>finish(null));
+  });
 }
 
 function startPublicLobby(isHost){
@@ -901,6 +948,18 @@ function wireLobbyEvents(peer){
   });
   peer.on("data",({senderPeerId,data}={})=>{
     if(!data||typeof data!=="object") return;
+    if(data.type==="room-query") {
+      if(state.isHost&&state.roomJoined&&String(data.code||"")===state.roomCode){
+        state.lobbyPeer.sendTo(String(senderPeerId),{type:"room-exists",code:state.roomCode,hostID:state.myID,hostName:state.myName,maxPlayers:state.maxPlayers,visibility:state.roomVisibility}).catch(()=>{});
+      }
+      return;
+    }
+    if(data.type==="room-exists") {
+      if(String(data.code||"")===String(state.roomCheckCode||"")) {
+        state.roomCheckWaiters.splice(0).forEach(resolve=>resolve({...data,updatedAt:Date.now()}));
+      }
+      return;
+    }
     if(data.type==="public-room") {
       if(!data.code||data.hostID===state.lobbyPeer?.peerId) return;
       state.publicRooms[String(data.code)]={...data,updatedAt:Date.now()};
@@ -911,12 +970,12 @@ function wireLobbyEvents(peer){
 }
 
 function advertisePublicRoom(){
-  if(!state.lobbyPeer||!state.isHost||state.roomVisibility!=="public"||!state.roomJoined) return;
-  const payload={type:"public-room",code:state.roomCode,hostID:state.myID,hostName:state.myName,maxPlayers:state.maxPlayers};
+  if(!state.lobbyPeer||!state.isHost||!state.roomJoined) return;
+  const payload={type:"public-room",code:state.roomCode,hostID:state.myID,hostName:state.myName,maxPlayers:state.maxPlayers,visibility:state.roomVisibility};
   state.lobbyPeer.send(payload).catch(error=>log(`انتشار روم عمومی ناموفق بود: ${error.message||error}`));
   clearInterval(state.lobbyTimer);
   state.lobbyTimer=setInterval(()=>{
-    if(state.roomJoined&&state.isHost&&state.roomVisibility==="public") state.lobbyPeer?.send(payload).catch(()=>{});
+    if(state.roomJoined&&state.isHost) state.lobbyPeer?.send(payload).catch(()=>{});
   },12000);
 }
 
@@ -926,7 +985,7 @@ function stopPublicLobby(){
 }
 
 function removePublicAdvertisement(){
-  if(!state.lobbyPeer||!state.isHost||state.roomVisibility!=="public") return;
+  if(!state.lobbyPeer||!state.isHost) return;
   state.lobbyPeer.send({type:"public-room-remove",code:state.roomCode}).catch(()=>{});
 }
 
@@ -1158,7 +1217,7 @@ function applyHostTransfer(newHostID){
 async function leaveRoom(notify,reason){
   if(!state.roomJoined&&!state.peer){navigateTo("home");return;}
   const wasHost=state.isHost;
-  if(wasHost && state.roomVisibility==="public") removePublicAdvertisement();
+  if(wasHost) removePublicAdvertisement();
   stopPublicLobby();
   try{
     if(notify!==false&&wasHost&&state.peer&&state.roomJoined){await state.peer.send({type:"hostLeft"});}
