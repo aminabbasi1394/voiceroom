@@ -6,14 +6,14 @@
 <title>VoiceRoom</title>
 <link rel="icon" type="image/png" href="https://uploadkon.ir/uploads/53a222_26Untitled-1-.png">
 <link rel="apple-touch-icon" href="https://uploadkon.ir/uploads/53a222_26Untitled-1-.png">
-<script src="https://unpkg.com/@metered-ca/realtime@1/dist/index.umd.js"></script>
+<script src="https://unpkg.com/@metered-ca/realtime@1.2.0/dist/index.umd.js"></script>
 
 <style>
 *{
   box-sizing:border-box;
   font-family:"Vazirmatn","Segoe UI",Tahoma,Arial,sans-serif;
 }
-html,body{width:100%;min-height:100%;overflow-x:hidden;overflow-y:auto;}
+html,body{width:100%;height:100%;overflow:hidden;}
 body{
   margin:0;
   background:
@@ -319,7 +319,8 @@ audio{
 .site-nav-links{display:flex;flex-direction:column;gap:11px;flex:1}
 .site-nav-links button{width:100%;padding:15px 16px;font-size:14px;background:#202a40;text-align:right;min-height:52px}
 .site-nav-links button.active{background:linear-gradient(135deg,#7357ff,#2f8cff)}
-.page{min-height:100vh;margin-right:285px;padding:1px 20px;overflow:visible;display:block}
+.page{height:100vh;min-height:100vh;margin-right:285px;padding:1px 20px;overflow-y:auto;overflow-x:hidden;display:block}
+#homePage{overflow:hidden}
 .page-card{width:min(920px,calc(100% - 20px));min-height:calc(100vh - 56px);overflow:visible;max-width:920px;margin:28px auto;padding:34px;background:linear-gradient(145deg,#171e2de8,#10172be8);border:1px solid #344064;border-radius:20px;box-shadow:0 15px 50px #0005}
 .page-card h2{margin-top:0;color:#a9b5ff}
 .about-text{font-size:15px;line-height:2.2;color:#c8d0e2;background:#10172b;border:1px solid #303b58;border-radius:16px;padding:24px}.about-text p{margin:0 0 14px}.about-text .creator{margin-top:24px;color:#aeb9d8}.account-card{background:#10172b;border:1px solid #303b58;border-radius:12px;padding:14px;margin:12px 0;font-size:12px;line-height:2}
@@ -331,7 +332,8 @@ audio{
   .site-brand{display:none}
   .site-nav-links{width:100%;flex-direction:row;gap:6px}
   .site-nav-links button{flex:1;text-align:center;padding:10px 4px;min-height:46px;font-size:12px}
-  .page{margin-right:0;padding:1px 8px 82px;min-height:100vh}
+  .page{margin-right:0;padding:1px 8px 82px;height:100vh;min-height:100vh;overflow-y:auto;overflow-x:hidden}
+#homePage{overflow:hidden}
   .main{
     grid-template-columns:1fr;
   }
@@ -538,7 +540,9 @@ let isHost = false;
 let hostID = "";
 let roomJoined = false;
 let guestJoinConfirmed = false;
+let guestJoinRejected = false;
 let guestJoinTimer = null;
+let transitionBusy = false;
 let players = {};
 let localStream = null;
 let microphoneEnabled = false;
@@ -568,7 +572,7 @@ function showTransitionLoading(title,text){
   if($("loadingText")) $("loadingText").textContent=text||"در حال آماده‌سازی روم و اتصال به سرور هستیم. صفحه خالی نیست 😊";
   if($("transitionLoading")) $("transitionLoading").classList.add("show");
 }
-function hideTransitionLoading(){ if($("transitionLoading")) $("transitionLoading").classList.remove("show"); }
+function hideTransitionLoading(){ transitionBusy=false; if($("transitionLoading")) $("transitionLoading").classList.remove("show"); }
 function normalizeRoomCode(value){
   const code=value.trim().toLowerCase();
   if(!/^[a-z][a-z0-9-]{2,39}$/.test(code)) throw new Error("کد باید با حرف انگلیسی شروع شود و فقط شامل حروف انگلیسی، عدد و - باشد.");
@@ -607,6 +611,7 @@ function createRoom(){
 }
 function backToLogin(){ $("roomSetupScreen").classList.add("hidden"); $("loginScreen").classList.remove("hidden"); }
 async function confirmCreateRoom(){
+  if(transitionBusy) return;
   showTransitionLoading("در حال ساخت روم...","روم شما در حال ساخته شدن است و اتصال صوتی در حال آماده‌سازی است. لطفاً چند لحظه صبر کنید ⏳");
   maxPlayers=Math.min(20,Math.max(2,Number($("maxPlayersSelect").value)||DEFAULT_MAX_PLAYERS));
   isHost=true; hostID=""; players={};
@@ -614,6 +619,7 @@ async function confirmCreateRoom(){
   await enterMeteredRoom(true);
 }
 async function joinRoom(){
+  if(transitionBusy) return;
   const name=$("name").value.trim();
   if(!name){ setStatus("لطفاً نام خود را وارد کنید."); return; }
   try{ roomCode=normalizeRoomCode($("room").value); }
@@ -624,10 +630,4 @@ async function joinRoom(){
 }
 function setActiveNav(page){
   ["navHome","navOnline","navAccount","navAbout"].forEach(id=>{ if($(id)) $(id).classList.remove("active"); });
-  const map={home:"navHome",online:"navOnline",account:"navAccount",about:"navAbout"};
-  if(map[page]) $(map[page]).classList.add("active");
-}
-function showPage(page){
-  const inRoom=!!roomJoined;
-  $("homePage").classList.toggle("hidden",page!=="home");
-  $("onlinePage").classList.toggle("hidden",page!==
+  if($("navHome")) $("navHome").style.display=roomJoin
