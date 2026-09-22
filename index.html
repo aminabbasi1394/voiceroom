@@ -630,6 +630,8 @@ function confirmGuestJoin(){
   guestJoinConfirmed=true;
   if(guestJoinTimer){ clearTimeout(guestJoinTimer); guestJoinTimer=null; }
   setStatus("");
+  showApp();
+  addSystem("با موفقیت وارد روم شدید ✅");
   log("وجود روم توسط میزبان تأیید شد ✅");
 }
 
