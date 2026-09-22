@@ -2,1088 +2,392 @@
 <html lang="fa" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
+<meta name="theme-color" content="#121934">
 <title>VoiceRoom</title>
 <link rel="icon" type="image/png" href="https://uploadkon.ir/uploads/53a222_26Untitled-1-.png">
 <link rel="apple-touch-icon" href="https://uploadkon.ir/uploads/53a222_26Untitled-1-.png">
 <script src="https://unpkg.com/@metered-ca/realtime@1.2.0/dist/index.umd.js"></script>
-
 <style>
-*{
-  box-sizing:border-box;
-  font-family:"Vazirmatn","Segoe UI",Tahoma,Arial,sans-serif;
-}
-html,body{width:100%;height:100%;overflow:hidden;}
-body{
-  margin:0;
-  background:
-    radial-gradient(circle at 15% 15%, #6d3cff55 0, transparent 32%),
-    radial-gradient(circle at 85% 20%, #2878ff55 0, transparent 30%),
-    linear-gradient(135deg,#090d1d 0%,#17113a 48%,#081d3c 100%);
-  color:#fff;
-  min-height:100vh;
-  -webkit-font-smoothing:antialiased;
-  text-rendering:optimizeLegibility;
-  overflow:hidden;
-}
-button,input{
-  font:inherit;
-}
-button{
-  border:0;
-  border-radius:12px;
-  padding:12px 15px;
-  cursor:pointer;
-  color:white;
-  background:#5865f2;
-  transition:.2s;
-}
-button:hover{background:#4752c4}
-#transitionLoading{position:fixed;inset:0;z-index:9999;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(7,10,18,.88);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
-#transitionLoading.show{display:flex}
-.loading-card{width:min(430px,100%);padding:30px 24px;text-align:center;border:1px solid #303b59;border-radius:22px;background:linear-gradient(145deg,#1d2140f5,#111b34f5);box-shadow:0 20px 60px #0008}
-.loading-spinner{width:42px;height:42px;margin:0 auto 16px;border:4px solid #30384e;border-top-color:#8b7cff;border-radius:50%;animation:spin .8s linear infinite}
-.loading-title{font-size:20px;font-weight:800;color:#fff;margin-bottom:8px}
-.loading-text{color:#aab3c7;line-height:1.8}
-@keyframes spin{to{transform:rotate(360deg)}}
-input{
-  width:100%;
-  padding:13px;
-  margin:7px 0;
-  border:1px solid #30384e;
-  border-radius:11px;
-  outline:none;
-  background:#1a2131;
-  color:#fff;
-}
-input:focus{border-color:#7180ff}
+*{box-sizing:border-box;font-family:"Vazirmatn","Segoe UI",Tahoma,Arial,sans-serif}
+html,body{width:100%;height:100%;margin:0;overflow:hidden}
+body{color:#fff;background:radial-gradient(circle at 15% 10%,#6d3cff55,transparent 30%),radial-gradient(circle at 85% 15%,#2878ff55,transparent 28%),linear-gradient(135deg,#090d1d 0%,#17113a 48%,#081d3c 100%);-webkit-font-smoothing:antialiased}
+button,input,select{font:inherit}
+button{border:0;border-radius:12px;padding:11px 14px;cursor:pointer;color:#fff;background:#5865f2;transition:.18s ease}
+button:hover{filter:brightness(1.08);transform:translateY(-1px)}
+button:active{transform:translateY(0)}
+button:disabled{opacity:.55;cursor:not-allowed;transform:none;filter:none}
+input,select{width:100%;padding:13px;border:1px solid #30384e;border-radius:11px;outline:none;background:#1a2131;color:#fff}
+input:focus,select:focus{border-color:#7180ff;box-shadow:0 0 0 3px #7180ff22}
 .hidden{display:none!important}
-
-#loginScreen,#roomSetupScreen{
-  min-height:100vh;
-  overflow:hidden;
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  padding:20px;
-}
-.login-card,.setup-card{
-  width:100%;
-  max-width:460px;
-  background:linear-gradient(145deg,#1d2140ee,#111b34ee);
-  backdrop-filter:blur(18px);
-  -webkit-backdrop-filter:blur(18px);
-  border:1px solid #293247;
-  border-radius:24px;
-  padding:30px;
-  text-align:center;
-  box-shadow:0 15px 50px #0005;
-}
-.logo{
-  font-size:38px;
-  margin-bottom:5px;
-}
-.login-card h1,.setup-card h1{
-  margin:8px 0;
-  color:#a99aff;
-  text-shadow:0 0 25px #765cff88;
-}
-.subtitle{
-  color:#929bb1;
-  font-size:13px;
-  margin-bottom:25px;
-}
-.form-title{
-  text-align:right;
-  font-size:12px;
-  color:#aeb8cc;
-}
-.buttons{
-  display:flex;
-  gap:8px;
-  margin-top:10px;
-}
-.buttons button{flex:1}
-.primary{
-  background:linear-gradient(135deg,#7357ff,#2f8cff);
-  box-shadow:0 8px 25px #4e67ff44;
-}
-.primary:hover{background:linear-gradient(135deg,#846cff,#3d9aff)}
+.primary{background:linear-gradient(135deg,#7357ff,#2f8cff);box-shadow:0 8px 25px #4e67ff44}
 .secondary{background:#29324d}
-.setup-info{
-  background:#10172b;
-  border:1px solid #344064;
-  border-radius:14px;
-  padding:13px;
-  margin:15px 0;
-  color:#b8c2df;
-  font-size:12px;
-  line-height:1.9;
-}
-select{
-  width:100%;
-  padding:13px;
-  margin:7px 0;
-  border:1px solid #30384e;
-  border-radius:11px;
-  outline:none;
-  background:#1a2131;
-  color:#fff;
-}
-#status{
-  font-size:12px;
-  color:#aeb8cc;
-  line-height:1.8;
-}
+.danger{background:#8e3749}
+.page{height:100vh;overflow-y:auto;overflow-x:hidden;padding:26px 320px 32px 24px;display:none;scroll-behavior:smooth}
+.page.active{display:block}
+.page-inner{width:min(100%,980px);margin:0 auto}
+.nav{position:fixed;z-index:1000;right:18px;top:50%;transform:translateY(-50%);width:282px;padding:22px;background:linear-gradient(145deg,#171e2df7,#10172bf7);border:1px solid #344064;border-radius:20px;box-shadow:0 20px 60px #0008}
+.nav-brand{text-align:center;font-weight:800;font-size:18px;color:#a99aff;padding:4px 0 16px;border-bottom:1px solid #303b58}
+.nav-links{display:flex;flex-direction:column;gap:10px;margin-top:14px}
+.nav-button{width:100%;min-height:52px;text-align:right;background:#202a40;padding:14px 16px;font-size:14px}
+.nav-button.active{background:linear-gradient(135deg,#7357ff,#2f8cff);box-shadow:0 8px 25px #4e67ff33}
+.card{background:linear-gradient(145deg,#171e2de8,#10172be8);border:1px solid #344064;border-radius:20px;box-shadow:0 15px 50px #0005}
+.home-card{max-width:520px;margin:55px auto;padding:34px;text-align:center}
+.logo{font-size:42px;margin-bottom:4px}
+h1,h2,h3{margin-top:0}
+.home-card h1,.page-card h2{color:#a99aff;text-shadow:0 0 25px #765cff66}
+.subtitle{color:#929bb1;font-size:13px;line-height:1.9;margin-bottom:24px}
+.form-title{text-align:right;font-size:12px;color:#aeb8cc;margin-top:9px}
+.form-row{display:flex;gap:9px;margin-top:10px}
+.form-row>*{flex:1}
+.status{min-height:44px;margin:14px 0 0;color:#aeb8cc;font-size:12px;line-height:1.8}
+.setup-card{max-width:520px;margin:55px auto;padding:34px;text-align:center}
+.setup-info{background:#10172b;border:1px solid #344064;border-radius:14px;padding:13px;margin:15px 0;color:#b8c2df;font-size:12px;line-height:2}
+.home-room-card{max-width:720px;margin:40px auto;padding:28px;text-align:center}
+.home-room-actions{display:flex;gap:9px;justify-content:center;flex-wrap:wrap;margin-top:18px}
+.page-card{padding:28px;margin:20px auto}
+.page-card h2{margin-bottom:18px}
+.empty-card{text-align:center;padding:55px 25px}
+.small{color:#8995ac;font-size:11px;line-height:1.9}
+.topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 16px;margin-bottom:12px}
+.brand{font-size:18px;font-weight:800;color:#8290ff}.room-name{font-size:12px;color:#9ca8bf;margin-top:4px}
+.top-actions{display:flex;gap:6px;flex-wrap:wrap}.top-actions button{font-size:12px;padding:9px 11px}
+.room-layout{display:grid;grid-template-columns:1fr 285px;gap:12px}
+.content,.side{padding:16px}
+.section-title{color:#a9b5ff;font-size:14px;margin:5px 0 14px}
+#messages{height:58vh;min-height:330px;overflow-y:auto;padding:8px;background:#0e1420;border-radius:12px}
+.message{background:#252f43;border-radius:11px;padding:10px;margin:8px 0;font-size:13px;word-break:break-word}.message b{color:#aab4ff}
+.system{text-align:center;color:#8490a7;font-size:11px;margin:10px}
+.reactions{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}.reactions button{padding:7px 10px;background:#202a40}
+.reaction-pop{background:#202a40;border-radius:10px;padding:7px 10px;margin:5px 0;font-size:12px;animation:pop .25s ease}@keyframes pop{from{transform:scale(.8);opacity:.2}to{transform:scale(1);opacity:1}}
+.send-box{display:flex;gap:7px;margin-top:10px}.send-box input{margin:0}.send-box button{margin:0}
+.player{display:flex;align-items:center;gap:9px;background:#222b3d;border-radius:11px;padding:11px;margin:8px 0;font-size:12px}.player.speaking{box-shadow:0 0 0 2px #45e68b55;background:#263b3a}
+.avatar{width:35px;height:35px;flex:0 0 35px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#5865f2;font-size:16px}.player-info{flex:1;min-width:0}.player-name{font-weight:700;word-break:break-word}.player-status{color:#8d99af;font-size:10px;margin-top:4px}.crown{color:#ffd34e}.hand{color:#ffd34e}.speaking-dot{color:#45e68b;font-weight:700}
+.player-actions{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}.player-actions button{padding:5px 7px;font-size:10px;background:#303b58}
+.invite{background:#202a40;border-radius:12px;padding:12px;margin-top:15px}.invite-title{font-size:12px;color:#b6c0ff;margin-bottom:8px}.invite-link{direction:ltr;text-align:left;font-size:10px;color:#aab5c9;word-break:break-all;background:#101722;padding:9px;border-radius:8px}.invite button{width:100%;margin-top:8px;font-size:12px}
+#consoleLog{direction:ltr;text-align:left;font-size:10px;color:#8d99af;max-height:180px;overflow-y:auto;background:#0e1420;border-radius:8px;padding:8px}
+.page-card .about-text{font-size:15px;line-height:2.2;color:#c8d0e2;background:#10172b;border:1px solid #303b58;border-radius:16px;padding:24px}.about-text p{margin:0 0 14px}
+.account-form{max-width:620px;margin:auto;background:#0f1729;border:1px solid #303b58;border-radius:16px;padding:20px}.account-card{background:#10172b;border:1px solid #303b58;border-radius:12px;padding:14px;margin:0 0 14px;font-size:12px;line-height:2}
+.online-list{display:flex;flex-direction:column;gap:12px;margin-top:18px}.online-room{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px;background:#121c31;border:1px solid #334263;border-radius:16px}.online-dot{width:11px;height:11px;flex:0 0 11px;border-radius:50%;background:#45e68b;box-shadow:0 0 12px #45e68b}.online-info{display:flex;align-items:center;gap:10px}
+.toast{position:fixed;z-index:2000;left:18px;bottom:18px;max-width:min(420px,calc(100% - 36px));padding:12px 15px;border:1px solid #39476a;border-radius:13px;background:#11192eeF;color:#d9def0;box-shadow:0 15px 40px #0007;transform:translateY(20px);opacity:0;pointer-events:none;transition:.2s}.toast.show{transform:translateY(0);opacity:1}
+.loading-inline{font-size:12px;color:#aeb8cc;min-height:22px;margin-top:8px}
+.room-visibility{display:flex;gap:9px;margin-top:12px}.visibility-option{flex:1;padding:12px;border:1px solid #30384e;border-radius:11px;background:#1a2131;color:#bfc7db;cursor:pointer;text-align:center;font-size:12px}.visibility-option.active{border-color:#7180ff;background:#27305a;color:#fff}.password-help{font-size:11px;color:#8d99af;line-height:1.8;margin-top:7px}.public-section{max-width:720px;margin:22px auto 0;padding:24px}.public-section h3{color:#a9b5ff;margin-bottom:6px}.public-room{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px;background:#121c31;border:1px solid #334263;border-radius:14px}.public-room-main{min-width:0}.public-room-title{font-weight:700}.public-room-meta{font-size:11px;color:#8d99af;margin-top:5px}.public-room button{flex:0 0 auto}.public-empty{font-size:12px;color:#8d99af;padding:12px 0}.public-refresh{font-size:11px;color:#9ca8bf;margin-top:10px}
+#app{display:none}
 
-#app{
-  display:none;
-  min-height:100vh;
-  padding:12px;
-}
-.topbar{
-  max-width:1150px;
-  margin:auto;
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  gap:10px;
-  flex-wrap:wrap;
-  background:linear-gradient(145deg,#171e2de8,#10172be8);
-  border:1px solid #344064;
-  padding:13px 16px;
-  border-radius:16px;
-}
-.brand{
-  font-size:18px;
-  font-weight:bold;
-  color:#8290ff;
-}
-.room-name{
-  font-size:12px;
-  color:#9ca8bf;
-  margin-top:4px;
-}
-.top-actions{
-  display:flex;
-  flex-wrap:wrap;
-  gap:5px;
-}
-.top-actions button{
-  padding:9px 11px;
-  font-size:12px;
-}
-
-.main{
-  max-width:1150px;
-  margin:12px auto;
-  display:grid;
-  grid-template-columns:1fr 270px;
-  gap:12px;
-}
-.side,.content{
-  background:linear-gradient(145deg,#171e2de8,#10172be8);
-  border:1px solid #344064;
-  border-radius:16px;
-  padding:15px;
-}
-.section-title{
-  color:#a9b5ff;
-  font-size:14px;
-  margin:5px 0 14px;
-}
-.player{
-  display:flex;
-  align-items:center;
-  gap:9px;
-  background:#222b3d;
-  border-radius:11px;
-  padding:11px;
-  margin:8px 0;
-  font-size:12px;
-}
-.avatar{
-  width:35px;
-  height:35px;
-  border-radius:50%;
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  background:#5865f2;
-  font-size:16px;
-}
-.player-info{
-  flex:1;
-}
-.player-name{
-  font-weight:bold;
-}
-.player-status{
-  color:#8d99af;
-  font-size:10px;
-  margin-top:4px;
-}
-.crown{color:#ffd34e}
-.player-actions{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}
-.player-actions button{padding:5px 7px;font-size:10px;background:#303b58}
-.player-actions button:hover{background:#46557e}
-.speaking{box-shadow:0 0 0 2px #45e68b55;background:#263b3a}
-.speaking-dot{color:#45e68b;font-weight:bold}
-.hand{color:#ffd34e;font-size:14px}
-.reactions{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}
-.reactions button{padding:7px 10px;background:#202a40}
-.reaction-pop{position:relative;background:#202a40;border-radius:10px;padding:7px 10px;margin:5px 0;font-size:12px;animation:pop .25s ease}
-@keyframes pop{from{transform:scale(.8);opacity:.2}to{transform:scale(1);opacity:1}}
-
-#messages{
-  height:53vh;
-  min-height:300px;
-  overflow-y:auto;
-  padding:8px;
-  background:#0e1420;
-  border-radius:12px;
-}
-.message{
-  background:#252f43;
-  border-radius:11px;
-  padding:10px;
-  margin:8px 0;
-  font-size:13px;
-  word-break:break-word;
-}
-.message b{color:#aab4ff}
-.system{
-  text-align:center;
-  color:#8490a7;
-  font-size:11px;
-  margin:10px;
-}
-.send-box{
-  display:flex;
-  gap:7px;
-  margin-top:10px;
-}
-.send-box input{margin:0}
-.send-box button{margin:0}
-
-.invite{
-  background:#202a40;
-  border-radius:12px;
-  padding:12px;
-  margin-top:15px;
-}
-.invite-title{
-  font-size:12px;
-  color:#b6c0ff;
-  margin-bottom:8px;
-}
-.invite-link{
-  direction:ltr;
-  text-align:left;
-  font-size:10px;
-  color:#aab5c9;
-  word-break:break-all;
-  background:#101722;
-  padding:9px;
-  border-radius:8px;
-}
-.invite button{
-  width:100%;
-  margin:8px 0 0;
-  font-size:12px;
-}
-#consoleLog{
-  direction:ltr;
-  text-align:left;
-  font-size:10px;
-  color:#8d99af;
-  max-height:150px;
-  overflow-y:auto;
-  background:#0e1420;
-  border-radius:8px;
-  padding:8px;
-}
-audio{
-  width:100%;
-  margin:5px 0;
-}
-.small{
-  color:#8995ac;
-  font-size:10px;
-  line-height:1.8;
-}
-
-
-.site-nav{position:fixed;right:18px;top:50%;transform:translateY(-50%);z-index:10000;width:280px;min-height:430px;padding:24px;background:linear-gradient(145deg,#171e2df7,#10172bf7);border:1px solid #344064;border-radius:18px;display:flex;flex-direction:column;align-items:stretch;gap:18px;box-shadow:0 15px 45px #0007}
-.site-brand{font-size:17px;font-weight:bold;color:#a99aff;white-space:nowrap;text-align:center;padding:4px 0 8px;border-bottom:1px solid #303b58}
-.site-nav-links{position:relative;z-index:10001;display:flex;flex-direction:column;gap:11px;flex:1}
-.site-nav-links button{position:relative;z-index:10002;pointer-events:auto;width:100%;padding:15px 16px;font-size:14px;background:#202a40;text-align:right;min-height:52px}
-.site-nav-links button.active{background:linear-gradient(135deg,#7357ff,#2f8cff)}
-.page{height:100vh;min-height:100vh;margin-right:285px;padding:1px 20px;overflow-y:auto;overflow-x:hidden;display:block;position:relative;z-index:1}
-#homePage{overflow:hidden;}
-.page-card{width:min(920px,calc(100% - 20px));min-height:calc(100vh - 56px);overflow:visible;max-width:920px;margin:28px auto;padding:34px;background:linear-gradient(145deg,#171e2de8,#10172be8);border:1px solid #344064;border-radius:20px;box-shadow:0 15px 50px #0005}
-.page-card h2{margin-top:0;color:#a9b5ff}
-.about-text{font-size:15px;line-height:2.2;color:#c8d0e2;background:#10172b;border:1px solid #303b58;border-radius:16px;padding:24px}.about-text p{margin:0 0 14px}.about-text .creator{margin-top:24px;color:#aeb9d8}.account-card{background:#10172b;border:1px solid #303b58;border-radius:12px;padding:14px;margin:12px 0;font-size:12px;line-height:2}
-.account-form{width:100%;max-width:620px;margin:auto;background:#0f1729;border:1px solid #303b58;border-radius:16px;padding:20px}.account-form .buttons{gap:12px}.account-form input{height:48px}
-.online-room-list{display:flex;flex-direction:column;gap:12px;margin-top:18px}.online-room{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px;background:#121c31;border:1px solid #334263;border-radius:16px}.online-room-name{font-weight:bold;font-size:15px}.online-dot{width:11px;height:11px;border-radius:50%;background:#45e68b;box-shadow:0 0 12px #45e68b}.empty-online{text-align:center;padding:50px 20px;color:#8d99af;background:#101722;border:1px dashed #344064;border-radius:16px}.online-card{display:flex;flex-direction:column;justify-content:center}
-
-@media(max-width:750px){
-  .site-nav{right:8px;top:auto;bottom:10px;transform:none;width:calc(100% - 16px);min-height:auto;padding:8px;border-radius:16px}
-  .site-brand{display:none}
-  .site-nav-links{width:100%;flex-direction:row;gap:6px}
-  .site-nav-links button{flex:1;text-align:center;padding:10px 4px;min-height:46px;font-size:12px}
-  .page{margin-right:0;padding:1px 8px 82px;height:100vh;min-height:100vh;overflow-y:auto;overflow-x:hidden}
-#homePage{overflow:hidden;}
-#homePage{overflow:hidden}
-  .main{
-    grid-template-columns:1fr;
-  }
-  .side{order:2}
-  .content{order:1}
-  .topbar{align-items:flex-start}
-  .top-actions{width:100%}
-  .top-actions button{flex:1}
+@media(max-width:820px){
+  .nav{right:8px;left:8px;top:auto;bottom:8px;transform:none;width:auto;padding:8px;border-radius:17px}
+  .nav-brand{display:none}.nav-links{margin:0;flex-direction:row;gap:6px}.nav-button{text-align:center;padding:10px 5px;min-height:46px;font-size:11px;flex:1}
+  .page{padding:16px 10px 82px;height:100vh}.room-layout{grid-template-columns:1fr}.side{order:2}.content{order:1}.topbar{align-items:flex-start}.top-actions{width:100%}.top-actions button{flex:1}
+  #messages{height:48vh;min-height:280px}.form-row{flex-direction:column}
 }
 </style>
 </head>
-
 <body>
-<div id="transitionLoading" aria-live="polite">
-  <div class="loading-card">
-    <div class="loading-spinner"></div>
-    <div id="loadingTitle" class="loading-title">لطفاً صبر کنید...</div>
-    <div id="loadingText" class="loading-text">در حال آماده‌سازی روم و اتصال به سرور هستیم. صفحه خالی نیست 😊</div>
-  </div>
-</div>
 
-
-<nav class="site-nav">
-  <div class="site-brand">🎙️ VoiceRoom</div>
-  <div class="site-nav-links">
-    <button id="navHome" onclick="showPage('home')">🏠 خانه</button>
-    <button id="navOnline" onclick="showPage('online')">🟢 روم آنلاین</button>
-    <button id="navAccount" onclick="showPage('account')">👤 حساب</button>
-    <button id="navAbout" onclick="showPage('about')">ℹ️ درباره</button>
+<nav class="nav" aria-label="ناوبری اصلی">
+  <div class="nav-brand">🎙️ VoiceRoom</div>
+  <div class="nav-links">
+    <button class="nav-button" data-page="home">🏠 خانه</button>
+    <button class="nav-button" data-page="online">🟢 روم آنلاین</button>
+    <button class="nav-button" data-page="account">👤 حساب</button>
+    <button class="nav-button" data-page="about">ℹ️ درباره</button>
   </div>
 </nav>
 
-<!-- HOME PAGE -->
-<div id="homePage" class="page">
+<main>
+  <section id="homePage" class="page active">
+    <div class="page-inner">
+      <section id="loginScreen" class="card home-card">
+        <div class="logo">🎙️</div>
+        <h1>VoiceRoom</h1>
+        <div class="subtitle">وارد یک روم خصوصی شو و با دوستانت گفتگو کن</div>
 
-<!-- LOGIN -->
-<section id="loginScreen">
-  <div class="login-card">
-    <div class="logo">🎙️</div>
-    <h1>VoiceRoom</h1>
-    <div class="subtitle">
-      وارد یک روم خصوصی شو و با دوستانت گفتگو کن
+        <div class="form-title">نام شما</div>
+        <input id="name" autocomplete="nickname" placeholder="مثلاً امیر">
+        <div class="form-title">کد روم</div>
+        <input id="room" autocomplete="off" placeholder="مثلاً room123">
+        <div class="form-title">رمز روم (اگر خصوصی است)</div>
+        <input id="joinRoomPassword" type="password" autocomplete="off" placeholder="برای روم عمومی خالی بگذار">
+
+        <div class="form-row">
+          <button id="createRoomBtn" class="primary" type="button">🏠 ساخت روم</button>
+          <button id="joinRoomBtn" class="secondary" type="button">🚪 ورود</button>
+        </div>
+        <div id="status" class="status">کد روم باید با حرف انگلیسی شروع شود.</div>
+        <div id="homeLoading" class="loading-inline"></div>
+      </section>
+
+      <section id="roomSetupScreen" class="card setup-card hidden">
+        <div class="logo">⚙️</div>
+        <h2>تنظیم روم</h2>
+        <div class="subtitle">قبل از ساخت روم، ظرفیتش را انتخاب کن.</div>
+        <div class="setup-info">
+          <div>👤 نام: <b id="setupName">-</b></div>
+          <div>🏠 کد روم: <b id="setupRoom">-</b></div>
+        </div>
+        <div class="form-title">حداکثر تعداد نفرات</div>
+        <select id="maxPlayersSelect"></select>
+        <div class="form-title">نوع روم</div>
+        <div class="room-visibility">
+          <button id="publicRoomOption" class="visibility-option active" type="button">🌐 عمومی</button>
+          <button id="privateRoomOption" class="visibility-option" type="button">🔒 خصوصی</button>
+        </div>
+        <div id="privatePasswordWrap" class="hidden">
+          <div class="form-title">رمز روم خصوصی</div>
+          <input id="roomPassword" type="password" autocomplete="new-password" placeholder="رمز را انتخاب کن">
+          <div class="password-help">این رمز فقط برای ورود به همین روم استفاده می‌شود.</div>
+        </div>
+        <div class="form-row">
+          <button id="backLoginBtn" class="secondary" type="button">↩️ برگشت</button>
+          <button id="confirmCreateBtn" class="primary" type="button">🚀 ساخت روم</button>
+        </div>
+        <div id="setupStatus" class="status">حداکثر ظرفیت می‌تواند تا ۲۰ نفر باشد.</div>
+      </section>
+
+      <section id="homeRoomCard" class="card home-room-card hidden">
+        <div class="logo">✅</div>
+        <h2>شما داخل یک روم هستید</h2>
+        <p class="subtitle">روم <b id="homeRoomCode">-</b> هنوز فعال است.</p>
+        <div class="home-room-actions">
+          <button id="homeBackToRoomBtn" class="primary" type="button">🟢 برگشت به روم</button>
+          <button id="homeLeaveRoomBtn" class="danger" type="button">🚪 خروج از روم</button>
+        </div>
+      </section>
+
+      <section id="publicRoomsSection" class="card public-section">
+        <h3>🌐 روم‌های عمومی</h3>
+        <div class="small">روم‌هایی که سازنده آن‌ها عمومی کرده است اینجا نمایش داده می‌شوند.</div>
+        <div id="publicRoomsList" class="online-list"></div>
+        <div id="publicRoomsStatus" class="public-refresh">در حال دریافت روم‌های عمومی...</div>
+      </section>
     </div>
+  </section>
 
-    <div class="form-title">نام شما</div>
-    <input id="name" placeholder="مثلاً امیر">
+  <section id="onlinePage" class="page">
+    <div class="page-inner">
+      <section id="app" class="card">
+        <header class="topbar">
+          <div>
+            <div class="brand">🎙️ VoiceRoom</div>
+            <div class="room-name" id="roomTitle">روم</div>
+          </div>
+          <div class="top-actions">
+            <button id="inviteBtn" type="button">🔗 دعوت</button>
+            <button id="micBtn" type="button">🎤 میکروفون</button>
+            <button id="audioBtn" type="button">🔇 خاموش کردن صدا</button>
+            <button id="handBtn" type="button">✋ دست بلند کردن</button>
+            <button id="leaveRoomBtn" class="danger" type="button">🚪 خروج</button>
+          </div>
+        </header>
 
-    <div class="form-title">کد روم</div>
-    <input id="room" placeholder="مثلاً room123">
+        <main class="room-layout">
+          <aside class="card side">
+            <h3 class="section-title">👥 اعضای روم</h3>
+            <div id="playersList"></div>
+            <div class="invite">
+              <div class="invite-title">🔗 لینک دعوت روم</div>
+              <div class="invite-link" id="inviteLink">-</div>
+              <button id="copyInviteBtn" type="button">📋 کپی لینک دعوت</button>
+            </div>
+            <h3 class="section-title" style="margin-top:20px">🛠 گزارش اتصال</h3>
+            <div id="consoleLog"></div>
+          </aside>
 
-    <div class="buttons">
-      <button class="primary" onclick="createRoom()">🏠 ساخت روم</button>
-      <button class="secondary" onclick="joinRoom()">🚪 ورود</button>
+          <section class="card content">
+            <h3 class="section-title">💬 گفتگوی روم</h3>
+            <div id="messages"></div>
+            <div class="reactions">
+              <button type="button" data-reaction="👍">👍</button>
+              <button type="button" data-reaction="❤️">❤️</button>
+              <button type="button" data-reaction="😂">😂</button>
+              <button type="button" data-reaction="👏">👏</button>
+              <button type="button" data-reaction="🔥">🔥</button>
+            </div>
+            <div class="send-box">
+              <input id="message" placeholder="پیامت رو بنویس..." autocomplete="off">
+              <button id="sendMessageBtn" type="button">ارسال</button>
+            </div>
+            <p class="small">برای صحبت صوتی، روی دکمه میکروفون بزن.</p>
+          </section>
+        </main>
+      </section>
+
+      <section id="onlineEmptyCard" class="card page-card empty-card">
+        <h2>🟢 روم آنلاین</h2>
+        <p class="subtitle">هنوز وارد رومی نشده‌ای. از صفحه خانه یک روم بساز یا به روم موجودی که لینک آن را داری وارد شو.</p>
+        <button id="goHomeBtn" class="primary" type="button">🏠 رفتن به خانه</button>
+      </section>
     </div>
+  </section>
 
-    <p id="status">
-      کد روم باید با حرف انگلیسی شروع شود.
-    </p>
-  </div>
-</section>
-
-<!-- ROOM SETUP -->
-<section id="roomSetupScreen" class="hidden">
-  <div class="setup-card">
-    <div class="logo">⚙️</div>
-    <h1>تنظیم روم</h1>
-    <div class="subtitle">قبل از ساخت روم، ظرفیتش رو انتخاب کن.</div>
-
-    <div class="setup-info">
-      <div>👤 نام: <b id="setupName">-</b></div>
-      <div>🏠 کد روم: <b id="setupRoom">-</b></div>
+  <section id="accountPage" class="page">
+    <div class="page-inner">
+      <section class="card page-card">
+        <h2>👤 حساب کاربری</h2>
+        <div id="accountPageCard" class="account-card"></div>
+        <div class="account-form">
+          <input id="accountUsername" placeholder="نام کاربری" autocomplete="username">
+          <input id="accountPassword" type="password" placeholder="رمز عبور" autocomplete="current-password">
+          <div class="form-row">
+            <button id="registerAccountBtn" class="primary" type="button">ثبت نام</button>
+            <button id="loginAccountBtn" class="secondary" type="button">ورود</button>
+          </div>
+          <button id="logoutAccountBtn" type="button" style="width:100%;margin-top:9px">خروج از حساب</button>
+        </div>
+        <p class="small">حساب این نسخه فقط روی همین مرورگر ذخیره می‌شود و برای دموی سایت است.</p>
+      </section>
     </div>
+  </section>
 
-    <div class="form-title">حداکثر تعداد نفرات</div>
-    <select id="maxPlayersSelect"></select>
-
-    <div class="buttons">
-      <button class="secondary" onclick="backToLogin()">↩️ برگشت</button>
-      <button class="primary" onclick="confirmCreateRoom()">🚀 ساخت روم</button>
+  <section id="aboutPage" class="page">
+    <div class="page-inner">
+      <section class="card page-card">
+        <h2>ℹ️ درباره VoiceRoom</h2>
+        <div class="about-text">
+          <p><b>درباره وبسایت:</b></p>
+          <p>وبسایت VoiceRoom به شما این امکان را می‌دهد که با دوستان خود در محیطی امن و مطمئن صحبت کنید و از چت متنی و صوتی استفاده کنید.</p>
+          <p><b>سازنده:</b> محمد امین عباسی</p>
+        </div>
+      </section>
     </div>
+  </section>
+</main>
 
-    <p id="setupStatus">حداکثر ظرفیت می‌تواند تا ۲۰ نفر باشد.</p>
-  </div>
-</section>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-
-
-</div><!-- /homePage -->
-
-<!-- ONLINE ROOMS PAGE -->
-<section id="onlinePage" class="page hidden">
-<!-- APP -->
-<section id="app">
-  <header class="topbar">
-    <div>
-      <div class="brand">🎙️ VoiceRoom</div>
-      <div class="room-name" id="roomTitle">روم</div>
-    </div>
-
-    <div class="top-actions">
-      <button onclick="copyInvite()">🔗 دعوت</button>
-      <button onclick="toggleMic()" id="micBtn">🎤 میکروفون</button>
-      <button onclick="toggleAudio()" id="audioBtn">🔇 خاموش کردن صدا</button>
-      <button onclick="toggleHandRaise()" id="handBtn">✋ دست بلند کردن</button>
-      <button onclick="leaveRoom()">🚪 خروج</button>
-    </div>
-  </header>
-
-  <main class="main">
-
-    <aside class="side">
-      <h3 class="section-title">👥 اعضای روم</h3>
-      <div id="playersList"></div>
-
-      <div class="invite">
-        <div class="invite-title">🔗 لینک دعوت روم</div>
-        <div class="invite-link" id="inviteLink"></div>
-        <button onclick="copyInvite()">📋 کپی لینک دعوت</button>
-      </div>
-
-      <h3 class="section-title" style="margin-top:20px">
-        🛠 گزارش اتصال
-      </h3>
-      <div id="consoleLog"></div>
-    </aside>
-
-    <section class="content">
-      <h3 class="section-title">💬 گفتگوی روم</h3>
-
-      <div id="messages"></div>
-
-      <div class="reactions">
-        <button onclick="sendReaction('👍')">👍</button>
-        <button onclick="sendReaction('❤️')">❤️</button>
-        <button onclick="sendReaction('😂')">😂</button>
-        <button onclick="sendReaction('👏')">👏</button>
-        <button onclick="sendReaction('🔥')">🔥</button>
-      </div>
-
-      <div class="send-box">
-        <input id="message"
-               placeholder="پیامت رو بنویس..."
-               onkeydown="handleEnter(event)">
-        <button onclick="sendMessage()">ارسال</button>
-      </div>
-
-      <p class="small">
-        برای صحبت صوتی، روی دکمه میکروفون بزن.
-      </p>
-    </section>
-
-  </main>
-</section>
-<div id="onlineEmptyCard" class="page-card online-card">
-    <h2>🟢 روم آنلاین</h2>
-    <p class="small">روم‌هایی که از این مرورگر به آن‌ها متصل هستید در این بخش نمایش داده می‌شوند.</p>
-    <div id="onlineRoomList" class="online-room-list"></div>
-  </div>
-
-
-
-
-</section>
-
-<!-- ACCOUNT PAGE -->
-
-
-<!-- ABOUT PAGE -->
-
-
-<!-- ACCOUNT PAGE -->
-<section id="accountPage" class="page hidden">
-  <div class="page-card">
-    <h2>👤 حساب کاربری</h2>
-    <div id="accountPageCard" class="account-card"></div>
-    <div class="account-form">
-      <input id="accountUsername" placeholder="نام کاربری">
-      <input id="accountPassword" type="password" placeholder="رمز عبور">
-      <div class="buttons">
-        <button class="primary" onclick="registerAccount()">ثبت نام</button>
-        <button class="secondary" onclick="loginAccount()">ورود</button>
-      </div>
-      <button style="width:100%;margin-top:8px" onclick="logoutAccount()">خروج از حساب</button>
-    </div>
-  </div>
-</section>
-
-<!-- ABOUT PAGE -->
-<section id="aboutPage" class="page hidden">
-  <div class="page-card about-card">
-    <h2>ℹ️ درباره VoiceRoom</h2>
-    <div class="about-text">
-      <p><b>درباره وبسایت:</b></p>
-      <p>وبسایت voiceroom به شما این امکان را میدهد که با دوستان خود در محیطی امن و <b>مطمئن</b> صحبت کنید و یا به روم های عمومی وصل شوید!</p>
-      <p class="creator"><b>سازنده:</b> محمد امین عباسی</p>
-    </div>
-  </div>
-</section>
 <script>
-/* Metered Realtime - publishable browser key */
+"use strict";
+
+/* فقط کلید Publishable Metered را اینجا قرار بده. کلید Secret را هرگز داخل HTML نگذار. */
 const METERED_API_KEY = "pk_live_c5fd9585879fec36158a127251bbab3415d93cdf";
 const DEFAULT_MAX_PLAYERS = 5;
-let maxPlayers = DEFAULT_MAX_PLAYERS;
+const MIN_MAX_PLAYERS = 2;
+const MAX_MAX_PLAYERS = 20;
+const GUEST_WAIT_MS = 7000;
+const PUBLIC_LOBBY_CHANNEL = "voiceroom-public-lobby-v1";
+const PUBLIC_ROOM_TTL_MS = 35000;
 
-let meteredPeer = null;
-let myID = "";
-let myName = "";
-let roomCode = "";
-let isHost = false;
-let hostID = "";
-let roomJoined = false;
-let guestJoinConfirmed = false;
-let guestJoinRejected = false;
-let guestJoinTimer = null;
-let transitionBusy = false;
-let players = {};
-let localStream = null;
-let microphoneEnabled = false;
-let audioEnabled = true;
-let handRaised = false;
-let speaking = false;
-let analyser = null;
-let speakingTimer = null;
-let hostTransferPending = false;
-const remoteAudios = {};
-const remotePeers = {};
+const state = {
+  peer:null,
+  lobbyPeer:null,
+  lobbyTimer:null,
+  publicRooms:{},
+  myID:"",
+  myName:"",
+  roomCode:"",
+  isHost:false,
+  hostID:"",
+  maxPlayers:DEFAULT_MAX_PLAYERS,
+  roomVisibility:"public",
+  roomPassword:"",
+  roomJoined:false,
+  guestConfirmed:false,
+  guestAuthSent:false,
+  guestRejected:false,
+  guestTimer:null,
+  players:{},
+  remotePeers:{},
+  remoteAudios:{},
+  localStream:null,
+  microphoneEnabled:false,
+  audioEnabled:true,
+  handRaised:false,
+  speaking:false,
+  speakingTimer:null,
+  audioContext:null,
+  analyser:null,
+  joining:false
+};
 
 const $ = id => document.getElementById(id);
 
-function log(text){
-  const time = new Date().toLocaleTimeString();
-  $("consoleLog").innerHTML += `<div>[${time}] ${escapeHTML(text)}</div>`;
-  $("consoleLog").scrollTop = $("consoleLog").scrollHeight;
-  console.log(text);
+function escapeHTML(value){
+  return String(value ?? "")
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'","&#039;");
 }
-function escapeHTML(text){
-  return String(text).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");
+
+function setStatus(text){
+  const el=$("status");
+  if(el) el.textContent=String(text||"");
 }
-function setStatus(text){ $("status").textContent = text; }
-function showTransitionLoading(title,text){
-  transitionBusy=true;
-  if($("loadingTitle")) $("loadingTitle").textContent=title||"لطفاً صبر کنید...";
-  if($("loadingText")) $("loadingText").textContent=text||"در حال آماده‌سازی روم و اتصال به سرور هستیم. صفحه خالی نیست 😊";
-  if($("transitionLoading")) $("transitionLoading").classList.add("show");
+
+function setSetupStatus(text){
+  const el=$("setupStatus");
+  if(el) el.textContent=String(text||"");
 }
-function hideTransitionLoading(){ transitionBusy=false; if($("transitionLoading")) $("transitionLoading").classList.remove("show"); }
+
+let toastTimer=null;
+function toast(message){
+  const el=$("toast");
+  if(!el) return;
+  el.textContent=String(message||"");
+  el.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>el.classList.remove("show"),2400);
+}
+
+function log(message){
+  const el=$("consoleLog");
+  const text=String(message??"");
+  if(el){
+    const line=document.createElement("div");
+    line.textContent=`[${new Date().toLocaleTimeString()}] ${text}`;
+    el.appendChild(line);
+    el.scrollTop=el.scrollHeight;
+  }
+  console.log("[VoiceRoom]",text);
+}
+
 function normalizeRoomCode(value){
-  const code=value.trim().toLowerCase();
-  if(!/^[a-z][a-z0-9-]{2,39}$/.test(code)) throw new Error("کد باید با حرف انگلیسی شروع شود و فقط شامل حروف انگلیسی، عدد و - باشد.");
+  const code=String(value||"").trim().toLowerCase();
+  if(!/^[a-z][a-z0-9-]{2,39}$/.test(code)){
+    throw new Error("کد روم باید با حرف انگلیسی شروع شود و فقط شامل حروف انگلیسی، عدد و - باشد.");
+  }
   return code;
 }
-function getInviteLink(){ return location.origin+location.pathname+"#room="+encodeURIComponent(roomCode); }
-function updateInviteLink(){ $("inviteLink").textContent=getInviteLink(); }
+
+function getInviteLink(){
+  return `${location.origin}${location.pathname}#room=${encodeURIComponent(state.roomCode)}`;
+}
+
+function updateInviteLink(){
+  const el=$("inviteLink");
+  if(el) el.textContent=state.roomCode?getInviteLink():"-";
+}
+
 async function copyInvite(){
+  if(!state.roomCode) return;
   const link=getInviteLink();
-  try{ await navigator.clipboard.writeText(link); addSystem("لینک دعوت کپی شد ✅"); }
-  catch(error){ const temp=document.createElement("input"); temp.value=link; document.body.appendChild(temp); temp.select(); document.execCommand("copy"); temp.remove(); addSystem("لینک دعوت کپی شد ✅"); }
+  try{
+    await navigator.clipboard.writeText(link);
+  }catch(e){
+    const input=document.createElement("input");
+    input.value=link;
+    document.body.appendChild(input);
+    input.select();
+    document.execCommand("copy");
+    input.remove();
+  }
+  addSystem("لینک دعوت کپی شد ✅");
+  toast("لینک دعوت کپی شد ✅");
 }
-function loadRoomFromURL(){
-  if(!location.hash.startsWith("#room=")) return;
-  const code=decodeURIComponent(location.hash.substring(6));
-  if(code){ $("room").value=code; setStatus("کد روم از لینک دعوت وارد شد."); }
-}
-function createRoom(){
-  const name=$("name").value.trim();
-  if(!name){ setStatus("لطفاً نام خود را وارد کنید."); return; }
-  try{ roomCode=normalizeRoomCode($("room").value); }
-  catch(error){ setStatus(error.message); return; }
-  myName=name;
-  $("setupName").textContent=myName;
-  $("setupRoom").textContent=roomCode;
-  $("loginScreen").classList.add("hidden");
-  $("roomSetupScreen").classList.remove("hidden");
-  $("setupStatus").textContent="حداکثر ظرفیت را انتخاب کن و بعد روی ساخت روم بزن.";
+
+function populateCapacitySelect(){
   const select=$("maxPlayersSelect");
-  if(!select.options.length){
-    for(let i=2;i<=20;i++){
-      const option=document.createElement("option"); option.value=i; option.textContent=i+" نفر"; select.appendChild(option);
-    }
+  if(!select || select.options.length) return;
+  for(let i=MIN_MAX_PLAYERS;i<=MAX_MAX_PLAYERS;i++){
+    const option=document.createElement("option");
+    option.value=String(i);
+    option.textContent=`${i} نفر`;
+    select.appendChild(option);
   }
   select.value=String(DEFAULT_MAX_PLAYERS);
 }
-function backToLogin(){ $("roomSetupScreen").classList.add("hidden"); $("loginScreen").classList.remove("hidden"); }
-async function confirmCreateRoom(){
-  if(transitionBusy) return;
-  showTransitionLoading("در حال ساخت روم...","روم شما در حال ساخته شدن است و اتصال صوتی در حال آماده‌سازی است. لطفاً چند لحظه صبر کنید ⏳");
-  maxPlayers=Math.min(20,Math.max(2,Number($("maxPlayersSelect").value)||DEFAULT_MAX_PLAYERS));
-  isHost=true; hostID=""; players={};
-  $("roomSetupScreen").classList.add("hidden");
-  await enterMeteredRoom(true);
-}
-async function joinRoom(){
-  if(transitionBusy) return;
-  const name=$("name").value.trim();
-  if(!name){ setStatus("لطفاً نام خود را وارد کنید."); return; }
-  try{ roomCode=normalizeRoomCode($("room").value); }
-  catch(error){ setStatus(error.message); return; }
-  showTransitionLoading("در حال ورود به روم...","در حال پیدا کردن روم و اتصال به میزبان هستیم. لطفاً چند لحظه صبر کنید ⏳");
-  myName=name; isHost=false; hostID=""; players={};
-  await enterMeteredRoom(false);
-}
-function setActiveNav(page){
-  ["navHome","navOnline","navAccount","navAbout"].forEach(id=>{ if($(id)) $(id).classList.remove("active"); });
-  if($("navHome")) $("navHome").style.display=roomJoined?"none":"";
-  const map={home:"navHome",online:"navOnline",account:"navAccount",about:"navAbout"};
-  if(map[page] && $(map[page])) $(map[page]).classList.add("active");
-}
-function showPage(page){
-  const allowed={home:true,online:true,account:true,about:true};
-  if(!allowed[page]) page="home";
 
-  const inRoom=!!roomJoined;
-  if(inRoom && page==="home") page="online";
-
-  ["homePage","onlinePage","accountPage","aboutPage"].forEach(id=>{
-    const el=$(id);
-    if(el) el.classList.toggle("hidden", id!==page+"Page");
-  });
-
-  const app=$("app");
-  if(app) app.style.display=(page==="online" && inRoom)?"block":"none";
-
-  const empty=$("onlineEmptyCard");
-  if(empty) empty.style.display=(page==="online" && !inRoom)?"flex":"none";
-
-  if(page==="online") refreshOnlineRooms();
-  if(page==="account") refreshAccount();
-  setActiveNav(page);
-}
-function showApp(){
-  hideTransitionLoading();
-  if($("loginScreen")) $("loginScreen").style.display="none";
-  if($("roomSetupScreen")) $("roomSetupScreen").classList.add("hidden");
-  if($("roomTitle")) $("roomTitle").textContent="روم: "+roomCode+" • "+maxPlayers+" نفر";
-  updateInviteLink();
-  showPage("online");
-}
-function showLogin(){
-  hideTransitionLoading();
-  if($("app")) $("app").style.display="none";
-  if($("roomSetupScreen")) $("roomSetupScreen").classList.add("hidden");
-  if($("loginScreen")) $("loginScreen").style.display="flex";
-  showPage("home");
-}
-function renderUsers(){
-  const list=$("playersList"); list.innerHTML="";
-  Object.values(players).forEach(player=>{
-    const div=document.createElement("div"); div.className="player"+(player.speaking?" speaking":"");
-    const firstLetter=String(player.name||"کاربر").charAt(0).toUpperCase();
-    let actions="";
-    if(isHost && player.id!==myID){
-      actions=`<div class="player-actions"><button onclick="hostMute(\'${escapeHTML(player.id)}\')">🔇 میوت</button><button onclick="hostKick(\'${escapeHTML(player.id)}\')">🚫 اخراج</button><button onclick="transferHost(\'${escapeHTML(player.id)}\')">👑 میزبانی</button></div>`;
-    }
-    div.innerHTML=`<div class="avatar">${escapeHTML(firstLetter)}</div><div class="player-info"><div class="player-name">${escapeHTML(player.name||"کاربر")}${player.host?'<span class="crown"> 👑</span>':''} ${player.handRaised?'<span class="hand">✋</span>':''}</div><div class="player-status">${player.speaking?'<span class="speaking-dot">● در حال صحبت</span>':(player.host?"میزبان":"عضو روم")}</div>${actions}</div>`;
-    list.appendChild(div);
-  });
-}
-function updatePlayers(){ renderUsers(); }
-function addMessage(name,message){
-  const div=document.createElement("div"); div.className="message";
-  div.innerHTML=`<b>${escapeHTML(name)}:</b> ${escapeHTML(message)}`;
-  $("messages").appendChild(div); $("messages").scrollTop=$("messages").scrollHeight;
-}
-function addSystem(message){ if($("consoleLog")) log(message); }
-async function sendMessage(){
-  const input=$("message"); const message=input.value.trim();
-  if(!message || !meteredPeer || !roomJoined) return;
-  addMessage(myName,message);
-  try{ await meteredPeer.send({type:"message",name:myName,message}); }
-  catch(error){ log("ارسال پیام ناموفق بود: "+(error.message||error)); }
-  input.value=""; input.focus();
-}
-function handleEnter(event){ if(event.key==="Enter") sendMessage(); }
-
-function registerLocalPlayer(){
-  players[myID||"local"]={id:myID||"local",name:myName,host:isHost,handRaised,speaking};
-  updatePlayers();
-}
-function broadcastPresence(){
-  if(!meteredPeer || !roomJoined) return;
-  meteredPeer.send({type:"presence",name:myName,host:isHost,hostID:hostID,maxPlayers:maxPlayers,handRaised,speaking}).catch(()=>{});
-}
-function setupRemote(remote){
-  if(!remote) return;
-  remotePeers[remote.id]=remote;
-  remote.on("stream-added",({stream})=>playAudio(remote.id,stream));
-  remote.on("stream-removed",({stream})=>removeAudio(remote.id,stream));
-  remote.on("state-change",({to})=>log("وضعیت اتصال "+remote.id+": "+to));
-}
-function removeAudio(id,stream){
-  const audio=remoteAudios[id];
-  if(audio && (!stream || audio.srcObject===stream)){
-    audio.srcObject=null; audio.remove(); delete remoteAudios[id];
-  }
-}
-function playAudio(id,stream){
-  let audio=remoteAudios[id];
-  if(!audio){
-    audio=document.createElement("audio");
-    audio.autoplay=true; audio.playsInline=true; audio.controls=false; audio.style.display="none"; audio.dataset.voiceAudio="true";
-    document.body.appendChild(audio); remoteAudios[id]=audio;
-  }
-  audio.srcObject=stream; audio.muted=!audioEnabled;
-  if(audioEnabled) audio.play().catch(()=>log("برای پخش صدا روی دکمه صدا بزنید."));
-  log("صدای کاربر دریافت شد: "+id);
-}
-function removeRemote(id){
-  removeAudio(id);
-  delete remotePeers[id];
-  delete players[id];
-  updatePlayers();
-}
-function enforceCapacity(){
-  const count=Object.keys(players).length;
-  if(count>maxPlayers){
-    log("ظرفیت روم تکمیل است.");
-    return false;
-  }
-  return true;
-}
-async function rejectGuestJoin(message){
-  guestJoinRejected=true;
-  if(guestJoinTimer){ clearTimeout(guestJoinTimer); guestJoinTimer=null; }
-  roomJoined=false;
-  guestJoinConfirmed=false;
-  stopMicrophone();
-  Object.keys(remoteAudios).forEach(id=>removeAudio(id));
-  players={};
-  if(meteredPeer){
-    try{ await meteredPeer.leave?.(); }catch(e){}
-    try{ meteredPeer.close?.(); }catch(e){}
-    meteredPeer=null;
-  }
-  showLogin();
-  setStatus(message);
-  log(message);
-}
-
-function confirmGuestJoin(){
-  if(isHost || guestJoinConfirmed || guestJoinRejected) return;
-  guestJoinConfirmed=true;
-  if(guestJoinTimer){ clearTimeout(guestJoinTimer); guestJoinTimer=null; }
-  setStatus("");
-  showApp();
-  addSystem("با موفقیت وارد روم شدید ✅");
-  log("وجود روم توسط میزبان تأیید شد ✅");
-}
-
-function sendReaction(emoji){
-  if(!meteredPeer || !roomJoined) return;
-  showReaction(myName,emoji);
-  meteredPeer.send({type:"reaction",name:myName,emoji}).catch(()=>{});
-}
-function showReaction(name,emoji){
-  const div=document.createElement("div"); div.className="reaction-pop";
-  div.textContent=String(name||"کاربر")+" "+String(emoji||"");
-  $("messages").appendChild(div); $("messages").scrollTop=$("messages").scrollHeight;
-  setTimeout(()=>div.remove(),3500);
-}
-function toggleHandRaise(){
-  handRaised=!handRaised;
-  if(players[myID]) players[myID].handRaised=handRaised;
-  $("handBtn").textContent=handRaised?"✋ پایین آوردن دست":"✋ دست بلند کردن";
-  updatePlayers();
-  if(meteredPeer&&roomJoined) meteredPeer.send({type:"hand",raised:handRaised}).catch(()=>{});
-}
-function setLocalSpeaking(value){
-  value=!!value; if(value===speaking) return; speaking=value;
-  if(players[myID]) players[myID].speaking=speaking;
-  updatePlayers();
-  if(meteredPeer&&roomJoined) meteredPeer.send({type:"speaking",speaking}).catch(()=>{});
-}
-function startSpeakingDetector(){
-  if(!localStream || speakingTimer) return;
-  try{
-    const ctx=new (window.AudioContext||window.webkitAudioContext)();
-    const source=ctx.createMediaStreamSource(localStream); analyser=ctx.createAnalyser(); analyser.fftSize=512; source.connect(analyser);
-    const data=new Uint8Array(analyser.fftSize);
-    speakingTimer=setInterval(()=>{
-      if(!analyser || !microphoneEnabled){ setLocalSpeaking(false); return; }
-      analyser.getByteTimeDomainData(data); let sum=0;
-      for(let i=0;i<data.length;i++){ const v=(data[i]-128)/128; sum+=v*v; }
-      setLocalSpeaking(Math.sqrt(sum/data.length)>0.035);
-    },120);
-  }catch(e){ log("تشخیص وضعیت صحبت در این مرورگر فعال نشد."); }
-}
-function stopSpeakingDetector(){
-  if(speakingTimer){clearInterval(speakingTimer);speakingTimer=null;} analyser=null; setLocalSpeaking(false);
-}
-function hostMute(id){
-  if(!isHost||!meteredPeer||!id||id===myID) return;
-  meteredPeer.sendTo(id,{type:"forceMute",by:myName}).catch(()=>{});
-  addSystem("دستور میوت برای کاربر ارسال شد.");
-}
-function hostKick(id){
-  if(!isHost||!meteredPeer||!id||id===myID) return;
-  meteredPeer.sendTo(id,{type:"kick",by:myName}).catch(()=>{});
-  setTimeout(()=>{ players[id]&&delete players[id]; updatePlayers(); },300);
-  addSystem("کاربر از روم اخراج شد.");
-}
-function transferHost(id){
-  if(!isHost||!meteredPeer||!id||id===myID) return;
-  hostTransferPending=true;
-  meteredPeer.sendTo(id,{type:"hostTransfer",hostID:id}).catch(()=>{hostTransferPending=false;});
-}
-function applyHostTransfer(newHostID){
-  hostID=String(newHostID||""); isHost=(myID===hostID); hostTransferPending=false;
-  Object.values(players).forEach(p=>p.host=p.id===hostID);
-  if(isHost) addSystem("شما میزبان جدید شدید 👑");
-  updatePlayers(); broadcastPresence();
-}
-
-function handleMeteredData({senderPeerId,data}){
-  if(!data || typeof data!=="object") return;
-
-  if(data.type==="reaction"){ showReaction(String(data.name||"کاربر"),String(data.emoji||"")); return; }
-  if(data.type==="hand"){ if(players[senderPeerId]) players[senderPeerId].handRaised=!!data.raised; updatePlayers(); return; }
-  if(data.type==="speaking"){ if(players[senderPeerId]) players[senderPeerId].speaking=!!data.speaking; updatePlayers(); return; }
-  if(data.type==="forceMute"){ stopMicrophone(); addSystem("میزبان میکروفون شما را خاموش کرد."); return; }
-  if(data.type==="kick"){ addSystem("شما توسط میزبان از روم اخراج شدید."); rejectGuestJoin("توسط میزبان از روم اخراج شدید."); return; }
-  if(data.type==="hostTransfer"){ applyHostTransfer(data.hostID); return; }
-  if(data.type==="roomFull"){
-    if(!isHost){
-      guestJoinRejected=true;
-      rejectGuestJoin("این روم پر است؛ ظرفیت تکمیل شده.");
-    }
-    return;
-  }
-
-  if(data.type==="system") {
-    const textMessage=String(data.message||"");
-    if(textMessage.includes("میزبان روم را ترک کرد")){
-      addSystem("میزبان از روم خارج شد.");
-      if(!isHost) rejectGuestJoin("میزبان روم را ترک کرد.");
-      return;
-    }
-    addSystem(textMessage);
-    return;
-  }
-
-  if(data.type==="message"){
-    if(senderPeerId!==myID) addMessage(String(data.name||"کاربر"),String(data.message||""));
-    return;
-  }
-  if(data.type==="presence"){
-    if(guestJoinRejected) return;
-    const name=String(data.name||"کاربر");
-    const senderIsHost=!!data.host;
-    if(senderIsHost && !hostID) hostID=senderPeerId;
-    if(senderIsHost && !isHost) confirmGuestJoin();
-    if(senderIsHost && senderPeerId!==myID){ hostID=senderPeerId; isHost=false; }
-    players[senderPeerId]={id:senderPeerId,name,host:senderPeerId===hostID||senderIsHost,handRaised:!!data.handRaised,speaking:!!data.speaking};
-    if(Number(data.maxPlayers)) maxPlayers=Math.min(20,Math.max(2,Number(data.maxPlayers)));
-    $("roomTitle").textContent="روم: "+roomCode+" • "+maxPlayers+" نفر";
-    updatePlayers();
-    return;
-  }
-  if(data.type==="room-info"){
-    if(!isHost && guestJoinRejected) return;
-    if(!isHost) confirmGuestJoin();
-    if(data.hostID) hostID=String(data.hostID);
-    if(Number(data.maxPlayers)) maxPlayers=Math.min(20,Math.max(2,Number(data.maxPlayers)));
-    if(data.players && typeof data.players==="object") players=data.players;
-    if(hostID && players[hostID]) players[hostID].host=true;
-    $("roomTitle").textContent="روم: "+roomCode+" • "+maxPlayers+" نفر";
-    updatePlayers();
-  }
-}
-async function enterMeteredRoom(hostMode){
-  if(!window.MeteredPeer){ hideTransitionLoading(); setStatus("کتابخانه Metered بارگذاری نشد."); log("Metered SDK موجود نیست."); return; }
-  if(!METERED_API_KEY || METERED_API_KEY.includes("REPLACE_WITH")){
-    setStatus("کلید Publishable Metered را داخل کد قرار بده."); log("کلید Metered تنظیم نشده است."); return;
-  }
-  try{
-    setStatus("در حال اتصال به Metered، لطفاً صبر کن...");
-    log("شروع اتصال به Metered...");
-    const PeerClass = window.MeteredPeer?.MeteredPeer || window.MeteredPeer;
-    if(typeof PeerClass!=="function") throw new Error("کلاس MeteredPeer پیدا نشد.");
-    meteredPeer=new PeerClass({apiKey:METERED_API_KEY});
-    isHost=hostMode;
-    meteredPeer.on("peer-joined",({peer:remote})=>{
-      setupRemote(remote);
-      log("کاربر جدید متصل شد: "+remote.id);
-      if(isHost){
-        if(Object.keys(players).length>=maxPlayers){
-          meteredPeer.sendTo(remote.id,{type:"roomFull"}).catch(()=>{});
-          log("ظرفیت روم تکمیل است: "+remote.id);
-          return;
-        }
-        players[remote.id]={id:remote.id,name:"کاربر",host:false};
-        meteredPeer.sendTo(remote.id,{type:"room-info",hostID:hostID,players,maxPlayers}).catch(()=>{});
-        updatePlayers();
-      }
-      broadcastPresence();
-    });
-    meteredPeer.on("peer-left",({peer:remote})=>{
-      log("کاربر خارج شد: "+remote.id);
-      removeRemote(remote.id);
-    });
-    meteredPeer.on("data",handleMeteredData);
-    meteredPeer.on("state-change",({to})=>{
-      log("وضعیت Metered: "+to);
-      if(to==="reconnecting") setStatus("ارتباط قطع شد؛ در حال اتصال مجدد...");
-      if(to==="joined") setStatus("");
-    });
-    meteredPeer.on("error",({err}={})=>{
-      const message=err?.message||String(err||"خطای ناشناخته");
-      log("خطای Metered: "+message);
-      setStatus("خطا در اتصال به Metered. کنسول را بررسی کن.");
-    });
-    await meteredPeer.join("voiceroom-"+roomCode);
-    roomJoined=true;
-    myID=meteredPeer.peerId||"";
-    if(!myID) log("شناسه کاربر هنوز آماده نیست؛ بعداً دریافت می‌شود.");
-    hostID=isHost ? myID : "";
-    registerLocalPlayer();
-
-    if(isHost){
-      showApp();
-      log("روم ساخته شد و اتصال برقرار شد ✅");
-      broadcastPresence();
-      try{ await meteredPeer.send({type:"room-info",hostID,players,maxPlayers}); }catch(error){}
-    }else{
-      guestJoinRejected=false;
-      setStatus("در حال بررسی وجود روم و پیدا کردن میزبان...");
-      log("مهمان متصل شد؛ منتظر تأیید میزبان هستیم...");
-      guestJoinConfirmed=false;
-      guestJoinTimer=setTimeout(()=>{
-        if(!guestJoinConfirmed && !guestJoinRejected){
-          rejectGuestJoin("این روم وجود ندارد یا میزبان در آن حضور ندارد.");
-        }
-      },3000);
-    }
-  }catch(error){
-    log("ورود به روم انجام نشد: "+(error?.message||error));
-    hideTransitionLoading();
-    setStatus("ورود به روم انجام نشد. کلید Metered و اینترنت را بررسی کن.");
-    roomJoined=false;
-    if(meteredPeer){ try{ meteredPeer.close(); }catch(e){} meteredPeer=null; }
-  }
-}
-async function toggleMic(){
-  if(microphoneEnabled){ stopMicrophone(); return; }
-  try{
-    if(!navigator.mediaDevices?.getUserMedia){
-      addSystem("مرورگر اجازه دسترسی به میکروفون را نمی‌دهد. سایت را با HTTPS باز کنید.");
-      return;
-    }
-    localStream=await navigator.mediaDevices.getUserMedia({audio:true,video:false});
-    microphoneEnabled=true;
-    localStream.getAudioTracks().forEach(track=>track.enabled=true);
-    if(meteredPeer) await Promise.resolve(meteredPeer.addStream(localStream,{role:"voice",label:"microphone"})).catch(error=>log("ارسال میکروفون ناموفق بود: "+(error?.message||error)));
-    startSpeakingDetector();
-    $("micBtn").textContent="🔇 خاموش کردن میکروفون";
-    addSystem("میکروفون فعال شد.");
-  }catch(error){ addSystem("دسترسی به میکروفون داده نشد."); log(error.message||error); }
-}
-function stopMicrophone(){
-  stopSpeakingDetector();
-  if(localStream){
-    if(meteredPeer){ try{ meteredPeer.removeStream(localStream); }catch(error){} }
-    localStream.getTracks().forEach(track=>track.stop()); localStream=null;
-  }
-  microphoneEnabled=false; $("micBtn").textContent="🎤 میکروفون"; addSystem("میکروفون خاموش شد.");
-}
-function toggleAudio(){
-  audioEnabled=!audioEnabled;
-  document.querySelectorAll("audio[data-voice-audio]").forEach(audio=>{
-    audio.muted=!audioEnabled;
-    if(audioEnabled) audio.play().catch(()=>{});
-  });
-  $("audioBtn").textContent=audioEnabled?"🔇 خاموش کردن صدا":"🔊 روشن کردن صدا";
-  addSystem(audioEnabled?"پخش صدا فعال شد.":"پخش صدا خاموش شد.");
-}
-async function leaveRoom(){
-  if(isHost && meteredPeer && roomJoined){ try{ await meteredPeer.send({type:"system",message:"میزبان روم را ترک کرد."}); }catch(e){} }
-  stopMicrophone();
-  Object.keys(remotePeers).forEach(id=>{ try{ remotePeers[id]?.close?.(); }catch(e){} delete remotePeers[id]; });
-  Object.keys(remoteAudios).forEach(id=>removeAudio(id));
-  Object.keys(remoteAudios).forEach(id=>delete remoteAudios[id]);
-  players={};
-  roomJoined=false;
-  myID="";
-  hostID="";
-  isHost=false;
-  microphoneEnabled=false;
-  handRaised=false;
-  speaking=false;
-  $("handBtn").textContent="✋ دست بلند کردن";
-  $("audioBtn").textContent="🔇 خاموش کردن صدا";
-
-  if(guestJoinTimer){ clearTimeout(guestJoinTimer); guestJoinTimer=null; }
-  guestJoinConfirmed=false;
-  guestJoinRejected=false;
-  if(meteredPeer){ try{ meteredPeer.close(); }catch(error){} meteredPeer=null; }
-  showLogin();
-  refreshOnlineRooms();
-  setStatus("از روم خارج شدید.");
-}
-function refreshOnlineRooms(){
-  const box=$("onlineRoomList"); if(!box) return;
-  if(roomJoined && roomCode){
-    box.innerHTML=`<div class="online-room"><div style="display:flex;align-items:center;gap:10px"><span class="online-dot"></span><div><div class="online-room-name">روم: ${escapeHTML(roomCode)}</div><div class="small">شما در این روم آنلاین هستید • ${maxPlayers} نفر</div></div></div><button class="primary" onclick="showPage('online')">ورود به روم</button></div>`;
-  }else{
-    box.innerHTML='<div class="empty-online">🕊️<br><br>روم آنلاینی ندارید.</div>';
-  }
-}
-
-function getAccount(){ try{return JSON.parse(localStorage.getItem("voiceroom_account")||"null");}catch(e){return null;} }
-function refreshAccount(){
-  const a=getAccount();
-  const html=a?"👤 <b>"+escapeHTML(a.username)+"</b><br>حساب شما روی همین مرورگر ذخیره شده.":"👤 حساب مهمان<br>برای ذخیره نام کاربری، ثبت نام کن.";
-  if($("accountPageCard")) $("accountPageCard").innerHTML=html;
-}
-function registerAccount(){
-  const u=$("accountUsername").value.trim(), pw=$("accountPassword").value;
-  if(u.length<3||pw.length<4){alert("نام کاربری حداقل ۳ و رمز عبور حداقل ۴ کاراکتر باشد.");return;}
-  localStorage.setItem("voiceroom_account",JSON.stringify({username:u,password:pw}));
-  $("name").value=u; myName=u; refreshAccount();
-  alert("ثبت نام انجام شد ✅");
-}
-function loginAccount(){
-  const a=getAccount(),u=$("accountUsername").value.trim(),pw=$("accountPassword").value;
-  if(!a||a.username!==u||a.password!==pw){alert("نام کاربری یا رمز عبور اشتباه است.");return;}
-  $("name").value=u; myName=u; refreshAccount();
-  alert("ورود به حساب انجام شد ✅");
-}
-function logoutAccount(){
-  localStorage.removeItem("voiceroom_account");
-  refreshAccount();
-  alert("از حساب خارج شدید.");
-}
-document.addEventListener("click",function(event){
-  const button=event.target.closest(".site-nav-links button");
-  if(!button) return;
-  event.preventDefault();
-  const page=button.id==="navHome"?"home":button.id==="navOnline"?"online":button.id==="navAccount"?"account":"about";
-  showPage(page);
-});
-
-refreshAccount();
-showPage("home");
-loadRoomFromURL();
-window.addEventListener("beforeunload",()=>{
-  try{ stopMicrophone(); }catch(e){}
-  try{ meteredPeer?.close?.(); }catch(e){}
-});
-</script>
-
-
-</body>
-</html>
+function setBusy(busy,text){
+  state.joining=busy;
+  ["createRoo
