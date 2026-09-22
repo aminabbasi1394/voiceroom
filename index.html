@@ -22,6 +22,8 @@ body{
     linear-gradient(135deg,#090d1d 0%,#17113a 48%,#081d3c 100%);
   color:#fff;
   min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
   overflow:hidden;
 }
 button,input{
@@ -304,15 +306,15 @@ audio{
 }
 
 
-.site-nav{position:fixed;right:18px;top:50%;transform:translateY(-50%);z-index:100;width:245px;min-height:390px;padding:20px;background:linear-gradient(145deg,#171e2df7,#10172bf7);border:1px solid #344064;border-radius:18px;display:flex;flex-direction:column;align-items:stretch;gap:16px;box-shadow:0 15px 45px #0007}
+.site-nav{position:fixed;right:18px;top:50%;transform:translateY(-50%);z-index:100;width:280px;min-height:430px;padding:24px;background:linear-gradient(145deg,#171e2df7,#10172bf7);border:1px solid #344064;border-radius:18px;display:flex;flex-direction:column;align-items:stretch;gap:18px;box-shadow:0 15px 45px #0007}
 .site-brand{font-size:17px;font-weight:bold;color:#a99aff;white-space:nowrap;text-align:center;padding:4px 0 8px;border-bottom:1px solid #303b58}
 .site-nav-links{display:flex;flex-direction:column;gap:11px;flex:1}
 .site-nav-links button{width:100%;padding:15px 16px;font-size:14px;background:#202a40;text-align:right;min-height:52px}
 .site-nav-links button.active{background:linear-gradient(135deg,#7357ff,#2f8cff)}
-.page{height:100vh;min-height:100vh;margin-right:275px;padding:1px 20px;overflow:hidden}
-.page-card{width:min(900px,calc(100% - 20px));max-height:calc(100vh - 56px);overflow:hidden;max-width:900px;margin:28px auto;padding:32px;background:linear-gradient(145deg,#171e2de8,#10172be8);border:1px solid #344064;border-radius:20px;box-shadow:0 15px 50px #0005}
+.page{height:100vh;min-height:100vh;margin-right:285px;padding:1px 20px;overflow:hidden;display:block}
+.page-card{width:min(920px,calc(100% - 20px));height:calc(100vh - 56px);max-height:calc(100vh - 56px);overflow:hidden;max-width:920px;margin:28px auto;padding:34px;background:linear-gradient(145deg,#171e2de8,#10172be8);border:1px solid #344064;border-radius:20px;box-shadow:0 15px 50px #0005}
 .page-card h2{margin-top:0;color:#a9b5ff}
-.account-card{background:#10172b;border:1px solid #303b58;border-radius:12px;padding:14px;margin:12px 0;font-size:12px;line-height:2}
+.about-text{font-size:15px;line-height:2.2;color:#c8d0e2;background:#10172b;border:1px solid #303b58;border-radius:16px;padding:24px}.about-text p{margin:0 0 14px}.about-text .creator{margin-top:24px;color:#aeb9d8}.account-card{background:#10172b;border:1px solid #303b58;border-radius:12px;padding:14px;margin:12px 0;font-size:12px;line-height:2}
 .account-form{width:100%;max-width:620px;margin:auto;background:#0f1729;border:1px solid #303b58;border-radius:16px;padding:20px}.account-form .buttons{gap:12px}.account-form input{height:48px}
 .online-room-list{display:flex;flex-direction:column;gap:12px;margin-top:18px}.online-room{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px;background:#121c31;border:1px solid #334263;border-radius:16px}.online-room-name{font-weight:bold;font-size:15px}.online-dot{width:11px;height:11px;border-radius:50%;background:#45e68b;box-shadow:0 0 12px #45e68b}.empty-online{text-align:center;padding:50px 20px;color:#8d99af;background:#101722;border:1px dashed #344064;border-radius:16px}.online-card{display:flex;flex-direction:column;justify-content:center}
 
@@ -399,6 +401,12 @@ audio{
   </div>
 </section>
 
+
+
+</div><!-- /homePage -->
+
+<!-- ONLINE ROOMS PAGE -->
+<section id="onlinePage" class="page hidden">
 <!-- APP -->
 <section id="app">
   <header class="topbar">
@@ -461,17 +469,11 @@ audio{
 
   </main>
 </section>
-
-</div><!-- /homePage -->
-
-<!-- ONLINE ROOMS PAGE -->
-<section id="onlinePage" class="page hidden">
-  <div class="page-card online-card">
+<div id="onlineEmptyCard" class="page-card online-card">
     <h2>🟢 روم آنلاین</h2>
-    <p class="small">روم فعلی که از همین مرورگر به آن متصل شده‌ای در این بخش نمایش داده می‌شود.</p>
+    <p class="small">روم‌هایی که از این مرورگر به آن‌ها متصل هستید در این بخش نمایش داده می‌شوند.</p>
     <div id="onlineRoomList" class="online-room-list"></div>
   </div>
-</section>
 
 <!-- ACCOUNT PAGE -->
 <section id="accountPage" class="page hidden">
@@ -492,12 +494,12 @@ audio{
 
 <!-- ABOUT PAGE -->
 <section id="aboutPage" class="page hidden">
-  <div class="page-card">
+  <div class="page-card about-card">
     <h2>ℹ️ درباره VoiceRoom</h2>
-    <div class="account-card">
-      <b>VoiceRoom</b><br>
-      یک روم گفتگوی صوتی و متنی ساده برای دوستان.<br>
-      نسخه آزمایشی
+    <div class="about-text">
+      <p><b>درباره وبسایت:</b></p>
+      <p>وبسایت voiceroom به شما این امکان را میدهد که با دوستان خود در محیطی امن و <b>مطمئن</b> صحبت کنید و یا به روم های عمومی وصل شوید!</p>
+      <p class="creator"><b>سازنده:</b> محمد امین عباسی</p>
     </div>
   </div>
 </section>
@@ -598,10 +600,13 @@ function setActiveNav(page){
   if(map[page]) $(map[page]).classList.add("active");
 }
 function showPage(page){
+  const inRoom=!!roomJoined;
   $("homePage").classList.toggle("hidden",page!=="home");
   $("onlinePage").classList.toggle("hidden",page!=="online");
   $("accountPage").classList.toggle("hidden",page!=="account");
   $("aboutPage").classList.toggle("hidden",page!=="about");
+  if($("app")) $("app").style.display=(page==="online" && inRoom)?"block":"none";
+  if($("onlineEmptyCard")) $("onlineEmptyCard").style.display=(page==="online" && !inRoom)?"flex":"none";
   if(page==="online") refreshOnlineRooms();
   setActiveNav(page);
   if(page==="account") refreshAccount();
@@ -609,7 +614,6 @@ function showPage(page){
 function showApp(){
   $("loginScreen").style.display="none";
   $("roomSetupScreen").classList.add("hidden");
-  $("app").style.display="block";
   $("roomTitle").textContent="روم: "+roomCode+" • "+maxPlayers+" نفر";
   updateInviteLink();
   showPage("online");
@@ -944,7 +948,7 @@ async function leaveRoom(){
 function refreshOnlineRooms(){
   const box=$("onlineRoomList"); if(!box) return;
   if(roomJoined && roomCode){
-    box.innerHTML=`<div class="online-room"><div style="display:flex;align-items:center;gap:10px"><span class="online-dot"></span><div><div class="online-room-name">روم: ${escapeHTML(roomCode)}</div><div class="small">شما در این روم آنلاین هستید • ${maxPlayers} نفر</div></div></div><button class="primary" onclick="showPage('home')">ورود به روم</button></div>`;
+    box.innerHTML=`<div class="online-room"><div style="display:flex;align-items:center;gap:10px"><span class="online-dot"></span><div><div class="online-room-name">روم: ${escapeHTML(roomCode)}</div><div class="small">شما در این روم آنلاین هستید • ${maxPlayers} نفر</div></div></div><button class="primary" onclick="showPage('online')">ورود به روم</button></div>`;
   }else{
     box.innerHTML='<div class="empty-online">🕊️<br><br>روم آنلاینی ندارید.</div>';
   }
