@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>VoiceRoom</title>
-<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="https://unpkg.com/@metered-ca/realtime@1/dist/index.umd.js"></script>
 
 <style>
 *{
@@ -410,595 +410,291 @@ audio{
 </section>
 
 <script>
+/* Metered Realtime - publishable browser key */
+const METERED_API_KEY = "pk_live_c5fd9585879fec36158a127251bbab3415d93cdf";
 const DEFAULT_MAX_PLAYERS = 5;
 let maxPlayers = DEFAULT_MAX_PLAYERS;
 
-let peer = null;
+let meteredPeer = null;
 let myID = "";
 let myName = "";
 let roomCode = "";
-let hostPeerId = "";
 let isHost = false;
-
+let hostID = "";
+let roomJoined = false;
 let players = {};
-let connections = {};
-let hostConnection = null;
-
 let localStream = null;
 let microphoneEnabled = false;
-let calls = {};
 let audioEnabled = true;
-
-/* ابزارها */
+const remoteAudios = {};
+const remotePeers = {};
 
 const $ = id => document.getElementById(id);
 
 function log(text){
   const time = new Date().toLocaleTimeString();
-  $("consoleLog").innerHTML +=
-    `<div>[${time}] ${escapeHTML(text)}</div>`;
+  $("consoleLog").innerHTML += `<div>[${time}] ${escapeHTML(text)}</div>`;
   $("consoleLog").scrollTop = $("consoleLog").scrollHeight;
   console.log(text);
 }
-
 function escapeHTML(text){
-  return String(text)
-    .replaceAll("&","&amp;")
-    .replaceAll("<","&lt;")
-    .replaceAll(">","&gt;")
-    .replaceAll('"',"&quot;")
-    .replaceAll("'","&#039;");
+  return String(text).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");
 }
-
-function setStatus(text){
-  $("status").textContent = text;
-}
-
+function setStatus(text){ $("status").textContent = text; }
 function normalizeRoomCode(value){
-  const code = value.trim().toLowerCase();
-
-  if(!/^[a-z][a-z0-9-]{2,39}$/.test(code)){
-    throw new Error(
-      "کد باید با حرف انگلیسی شروع شود و فقط شامل حروف انگلیسی، عدد و - باشد."
-    );
-  }
-
+  const code=value.trim().toLowerCase();
+  if(!/^[a-z][a-z0-9-]{2,39}$/.test(code)) throw new Error("کد باید با حرف انگلیسی شروع شود و فقط شامل حروف انگلیسی، عدد و - باشد.");
   return code;
 }
-
-/* لینک دعوت */
-
-function getInviteLink(){
-  return location.origin +
-    location.pathname +
-    "#room=" + encodeURIComponent(roomCode);
-}
-
-function updateInviteLink(){
-  $("inviteLink").textContent = getInviteLink();
-}
-
+function getInviteLink(){ return location.origin+location.pathname+"#room="+encodeURIComponent(roomCode); }
+function updateInviteLink(){ $("inviteLink").textContent=getInviteLink(); }
 async function copyInvite(){
-  const link = getInviteLink();
-
-  try{
-    await navigator.clipboard.writeText(link);
-    addSystem("لینک دعوت کپی شد ✅");
-  }catch(error){
-    const temp = document.createElement("input");
-    temp.value = link;
-    document.body.appendChild(temp);
-    temp.select();
-    document.execCommand("copy");
-    temp.remove();
-    addSystem("لینک دعوت کپی شد ✅");
-  }
+  const link=getInviteLink();
+  try{ await navigator.clipboard.writeText(link); addSystem("لینک دعوت کپی شد ✅"); }
+  catch(error){ const temp=document.createElement("input"); temp.value=link; document.body.appendChild(temp); temp.select(); document.execCommand("copy"); temp.remove(); addSystem("لینک دعوت کپی شد ✅"); }
 }
-
-/* ورود خودکار از لینک */
-
 function loadRoomFromURL(){
-  const hash = location.hash;
-
-  if(!hash.startsWith("#room=")) return;
-
-  const code = decodeURIComponent(hash.substring(6));
-
-  if(code){
-    $("room").value = code;
-    setStatus("کد روم از لینک دعوت وارد شد.");
-  }
+  if(!location.hash.startsWith("#room=")) return;
+  const code=decodeURIComponent(location.hash.substring(6));
+  if(code){ $("room").value=code; setStatus("کد روم از لینک دعوت وارد شد."); }
 }
-
-/* ساخت و ورود به روم */
-
 function createRoom(){
-  const name = $("name").value.trim();
-
-  if(!name){
-    setStatus("لطفاً نام خود را وارد کنید.");
-    return;
-  }
-
-  try{
-    roomCode = normalizeRoomCode($("room").value);
-  }catch(error){
-    setStatus(error.message);
-    return;
-  }
-
-  myName = name;
-
-  $("setupName").textContent = myName;
-  $("setupRoom").textContent = roomCode;
+  const name=$("name").value.trim();
+  if(!name){ setStatus("لطفاً نام خود را وارد کنید."); return; }
+  try{ roomCode=normalizeRoomCode($("room").value); }
+  catch(error){ setStatus(error.message); return; }
+  myName=name;
+  $("setupName").textContent=myName;
+  $("setupRoom").textContent=roomCode;
   $("loginScreen").classList.add("hidden");
   $("roomSetupScreen").classList.remove("hidden");
-  $("setupStatus").textContent = "حداکثر ظرفیت را انتخاب کن و بعد روی ساخت روم بزن.";
-
-  const select = $("maxPlayersSelect");
+  $("setupStatus").textContent="حداکثر ظرفیت را انتخاب کن و بعد روی ساخت روم بزن.";
+  const select=$("maxPlayersSelect");
   if(!select.options.length){
     for(let i=2;i<=20;i++){
-      const option = document.createElement("option");
-      option.value = i;
-      option.textContent = i + " نفر";
-      select.appendChild(option);
+      const option=document.createElement("option"); option.value=i; option.textContent=i+" نفر"; select.appendChild(option);
     }
   }
-  select.value = String(DEFAULT_MAX_PLAYERS);
+  select.value=String(DEFAULT_MAX_PLAYERS);
 }
-
-function backToLogin(){
+function backToLogin(){ $("roomSetupScreen").classList.add("hidden"); $("loginScreen").classList.remove("hidden"); }
+async function confirmCreateRoom(){
+  maxPlayers=Math.min(20,Math.max(2,Number($("maxPlayersSelect").value)||DEFAULT_MAX_PLAYERS));
+  isHost=true; hostID=""; players={};
   $("roomSetupScreen").classList.add("hidden");
-  $("loginScreen").classList.remove("hidden");
+  await enterMeteredRoom(true);
 }
-
-function confirmCreateRoom(){
-  maxPlayers = Math.min(20, Math.max(2, Number($("maxPlayersSelect").value) || DEFAULT_MAX_PLAYERS));
-
-  hostPeerId = roomCode;
-  isHost = true;
-  players = {};
-  connections = {};
-
-  $("roomSetupScreen").classList.add("hidden");
-  log("در حال ساخت روم با ظرفیت " + maxPlayers + " نفر...");
-  createPeer(hostPeerId);
+async function joinRoom(){
+  const name=$("name").value.trim();
+  if(!name){ setStatus("لطفاً نام خود را وارد کنید."); return; }
+  try{ roomCode=normalizeRoomCode($("room").value); }
+  catch(error){ setStatus(error.message); return; }
+  myName=name; isHost=false; hostID=""; players={};
+  await enterMeteredRoom(false);
 }
-
-function joinRoom(){
-  const name = $("name").value.trim();
-
-  if(!name){
-    setStatus("لطفاً نام خود را وارد کنید.");
-    return;
-  }
-
-  try{
-    roomCode = normalizeRoomCode($("room").value);
-  }catch(error){
-    setStatus(error.message);
-    return;
-  }
-
-  myName = name;
-  hostPeerId = roomCode;
-  isHost = false;
-  players = {};
-  connections = {};
-
-  log("در حال اتصال به روم...");
-  createPeer(null);
-}
-
-function createPeer(customID){
-  peer = customID
-    ? new Peer(customID,{debug:1})
-    : new Peer(undefined,{debug:1});
-
-  peer.on("open",id=>{
-    myID = id;
-    log("شناسه: " + id);
-
-    if(isHost){
-      players[myID] = {
-        id:myID,
-        name:myName,
-        host:true
-      };
-
-      showApp();
-      addSystem("روم با موفقیت ساخته شد ✅");
-      updatePlayers();
-
-    }else{
-      showApp();
-
-      hostConnection = peer.connect(hostPeerId,{
-        reliable:true
-      });
-
-      setupConnection(hostConnection);
-      addSystem("در حال اتصال به میزبان...");
-    }
-  });
-
-  peer.on("connection",connection=>{
-    if(isHost) setupConnection(connection);
-  });
-
-  peer.on("call",call=>{
-    handleIncomingCall(call);
-  });
-
-  peer.on("error",error=>{
-    log("خطا: " + error.type);
-
-    if(error.type === "unavailable-id" && isHost){
-      setStatus("این کد روم قبلاً در حال استفاده است. یک کد روم دیگر انتخاب کن.");
-    }
-    if(error.type === "peer-unavailable" && !isHost){
-      $("roomSetupScreen").classList.add("hidden");
-      $("loginScreen").classList.remove("hidden");
-      setStatus("این روم پیدا نشد یا دیگر در دسترس نیست.");
-    }
-
-    if(error.type === "unavailable-id"){
-      setStatus("این کد روم قبلاً استفاده شده است.");
-    }else if(error.type === "peer-unavailable"){
-      addSystem("روم پیدا نشد یا میزبان آنلاین نیست.");
-    }else{
-      setStatus("خطا در اتصال: " + error.type);
-    }
-  });
-}
-
 function showApp(){
-  $("loginScreen").style.display = "none";
-  $("app").style.display = "block";
-
-  $("roomTitle").textContent = "روم: " + roomCode + " • " + maxPlayers + " نفر";
+  $("loginScreen").style.display="none";
+  $("roomSetupScreen").classList.add("hidden");
+  $("app").style.display="block";
+  $("roomTitle").textContent="روم: "+roomCode+" • "+maxPlayers+" نفر";
   updateInviteLink();
 }
-
-/* اتصالات */
-
-function setupConnection(connection){
-  if(!connection) return;
-
-  connections[connection.peer] = connection;
-
-  connection.on("open",()=>{
-    log("اتصال برقرار شد.");
-
-    if(isHost){
-      connection.send({
-        type:"welcome",
-        hostID:myID,
-        players:players
-      });
-    }else{
-      connection.send({
-        type:"join",
-        name:myName
-      });
-    }
-  });
-
-  connection.on("data",data=>{
-    if(isHost){
-      handleHostData(data,connection);
-    }else{
-      handleGuestData(data);
-    }
-  });
-
-  connection.on("close",()=>{
-    const id = connection.peer;
-
-    delete connections[id];
-
-    if(isHost && players[id]){
-      addSystem(players[id].name + " از روم خارج شد.");
-      delete players[id];
-
-      broadcast({
-        type:"players",
-        players:players
-      });
-
-      updatePlayers();
-    }
-  });
+function showLogin(){
+  $("app").style.display="none";
+  $("roomSetupScreen").classList.add("hidden");
+  $("loginScreen").style.display="flex";
 }
-
-function handleHostData(data,connection){
-  if(!data || !data.type) return;
-
-  if(data.type === "join"){
-    if(Object.keys(players).length >= maxPlayers){
-      connection.send({type:"roomFull"});
-      return;
-    }
-
-    players[connection.peer] = {
-      id:connection.peer,
-      name:String(data.name || "کاربر"),
-      host:false
-    };
-
-    connection.send({
-      type:"welcome",
-      hostID:myID,
-      players:players,
-      maxPlayers:maxPlayers
-    });
-
-    broadcast({
-      type:"players",
-      players:players
-    });
-
-    broadcast({
-      type:"system",
-      message:players[connection.peer].name + " وارد روم شد."
-    });
-
-    updatePlayers();
-  }
-
-  if(data.type === "message"){
-    addMessage(data.name,data.message);
-    broadcast(data,connection.peer);
-  }
-
-  if(data.type === "leave"){
-    delete players[connection.peer];
-
-    broadcast({
-      type:"players",
-      players:players
-    });
-
-    updatePlayers();
-  }
-}
-
-function handleGuestData(data){
-  if(!data || !data.type) return;
-
-  if(data.type === "welcome"){
-    hostPeerId = data.hostID || hostPeerId;
-    players = data.players || {};
-    maxPlayers = Math.min(20, Math.max(2, Number(data.maxPlayers) || DEFAULT_MAX_PLAYERS));
-
-    showApp();
-    addSystem("با موفقیت وارد روم شدید ✅");
-    updatePlayers();
-    ensureVoiceConnections();
-  }
-
-  if(data.type === "players"){
-    players = data.players || {};
-    updatePlayers();
-    ensureVoiceConnections();
-  }
-
-  if(data.type === "message"){
-    addMessage(data.name,data.message);
-  }
-
-  if(data.type === "system"){
-    addSystem(data.message);
-  }
-
-  if(data.type === "roomFull"){
-    addSystem("ظرفیت روم تکمیل است.");
-  }
-}
-
-function broadcast(data,exceptID=null){
-  Object.keys(connections).forEach(id=>{
-    if(id === exceptID) return;
-
-    const connection = connections[id];
-
-    if(connection && connection.open){
-      try{
-        connection.send(data);
-      }catch(error){
-        log("ارسال ناموفق");
-      }
-    }
-  });
-}
-
-/* اعضا */
-
-function updatePlayers(){
-  const list = $("playersList");
-  list.innerHTML = "";
-
+function renderUsers(){
+  const list=$("playersList"); list.innerHTML="";
   Object.values(players).forEach(player=>{
-    const div = document.createElement("div");
-    div.className = "player";
-
-    const firstLetter =
-      String(player.name).charAt(0).toUpperCase();
-
-    div.innerHTML = `
-      <div class="avatar">${escapeHTML(firstLetter)}</div>
-      <div class="player-info">
-        <div class="player-name">
-          ${escapeHTML(player.name)}
-          ${player.host ? '<span class="crown"> 👑</span>' : ""}
-        </div>
-        <div class="player-status">
-          ${player.host ? "میزبان" : "عضو روم"}
-        </div>
-      </div>
-    `;
-
+    const div=document.createElement("div"); div.className="player";
+    const firstLetter=String(player.name||"کاربر").charAt(0).toUpperCase();
+    div.innerHTML=`<div class="avatar">${escapeHTML(firstLetter)}</div><div class="player-info"><div class="player-name">${escapeHTML(player.name||"کاربر")}${player.host?'<span class="crown"> 👑</span>':''}</div><div class="player-status">${player.host?"میزبان":"عضو روم"}</div></div>`;
     list.appendChild(div);
   });
 }
-
-/* چت */
-
-function sendMessage(){
-  const input = $("message");
-  const message = input.value.trim();
-
-  if(!message) return;
-
-  const data = {
-    type:"message",
-    name:myName,
-    message:message
-  };
-
-  addMessage(myName,message);
-
-  if(isHost){
-    broadcast(data);
-  }else if(hostConnection && hostConnection.open){
-    hostConnection.send(data);
-  }
-
-  input.value = "";
-  input.focus();
-}
-
-function handleEnter(event){
-  if(event.key === "Enter") sendMessage();
-}
-
+function updatePlayers(){ renderUsers(); }
 function addMessage(name,message){
-  const div = document.createElement("div");
-  div.className = "message";
-
-  div.innerHTML =
-    `<b>${escapeHTML(name)}:</b> ${escapeHTML(message)}`;
-
-  $("messages").appendChild(div);
-  scrollMessages();
+  const div=document.createElement("div"); div.className="message";
+  div.innerHTML=`<b>${escapeHTML(name)}:</b> ${escapeHTML(message)}`;
+  $("messages").appendChild(div); $("messages").scrollTop=$("messages").scrollHeight;
 }
-
-function addSystem(message){
-  log(message);
+function addSystem(message){ log(message); }
+async function sendMessage(){
+  const input=$("message"); const message=input.value.trim();
+  if(!message || !meteredPeer || !roomJoined) return;
+  addMessage(myName,message);
+  try{ await meteredPeer.send({type:"message",name:myName,message}); }
+  catch(error){ log("ارسال پیام ناموفق بود: "+(error.message||error)); }
+  input.value=""; input.focus();
 }
+function handleEnter(event){ if(event.key==="Enter") sendMessage(); }
 
-function scrollMessages(){
-  $("messages").scrollTop = $("messages").scrollHeight;
+function registerLocalPlayer(){
+  players[myID||"local"]={id:myID||"local",name:myName,host:isHost};
+  updatePlayers();
 }
-
-/* میکروفون */
-
-async function toggleMic(){
-  if(microphoneEnabled){
-    stopMicrophone();
+function broadcastPresence(){
+  if(!meteredPeer || !roomJoined) return;
+  meteredPeer.send({type:"presence",name:myName,host:isHost,hostID:hostID,maxPlayers:maxPlayers}).catch(()=>{});
+}
+function setupRemote(remote){
+  if(!remote) return;
+  remotePeers[remote.id]=remote;
+  remote.on("stream-added",({stream})=>playAudio(remote.id,stream));
+  remote.on("stream-removed",({stream})=>removeAudio(remote.id,stream));
+  remote.on("state-change",({to})=>log("وضعیت اتصال "+remote.id+": "+to));
+}
+function removeAudio(id,stream){
+  const audio=remoteAudios[id];
+  if(audio && (!stream || audio.srcObject===stream)){
+    audio.srcObject=null; audio.remove(); delete remoteAudios[id];
+  }
+}
+function playAudio(id,stream){
+  let audio=remoteAudios[id];
+  if(!audio){
+    audio=document.createElement("audio");
+    audio.autoplay=true; audio.playsInline=true; audio.controls=false; audio.style.display="none"; audio.dataset.voiceAudio="true";
+    document.body.appendChild(audio); remoteAudios[id]=audio;
+  }
+  audio.srcObject=stream; audio.muted=!audioEnabled;
+  if(audioEnabled) audio.play().catch(()=>log("برای پخش صدا روی دکمه صدا بزنید."));
+  log("صدای کاربر دریافت شد: "+id);
+}
+function removeRemote(id){
+  removeAudio(id);
+  delete remotePeers[id];
+  delete players[id];
+  updatePlayers();
+}
+function enforceCapacity(){
+  const count=Object.keys(players).length;
+  if(count>maxPlayers){
+    log("ظرفیت روم تکمیل است.");
+    return false;
+  }
+  return true;
+}
+function handleMeteredData({senderPeerId,data}){
+  if(!data || typeof data!=="object") return;
+  if(data.type==="message"){
+    if(senderPeerId!==myID) addMessage(String(data.name||"کاربر"),String(data.message||""));
     return;
   }
-
-  try{
-    localStream =
-      await navigator.mediaDevices.getUserMedia({
-        audio:true,
-        video:false
-      });
-
-    microphoneEnabled = true;
-    $("micBtn").textContent = "🔇خاموش کردن میکروفون";
-
-    addSystem("میکروفون فعال شد.");
-    closeAllCalls();
-
-    setTimeout(ensureVoiceConnections,500);
-
-  }catch(error){
-    addSystem("دسترسی به میکروفون داده نشد.");
-    log(error.message);
+  if(data.type==="presence"){
+    const name=String(data.name||"کاربر");
+    const senderIsHost=!!data.host;
+    if(senderIsHost && !hostID) hostID=senderPeerId;
+    if(senderIsHost) isHost=false;
+    players[senderPeerId]={id:senderPeerId,name,host:senderPeerId===hostID||senderIsHost};
+    if(Number(data.maxPlayers)) maxPlayers=Math.min(20,Math.max(2,Number(data.maxPlayers)));
+    $("roomTitle").textContent="روم: "+roomCode+" • "+maxPlayers+" نفر";
+    updatePlayers();
+    return;
+  }
+  if(data.type==="room-info"){
+    if(data.hostID) hostID=String(data.hostID);
+    if(Number(data.maxPlayers)) maxPlayers=Math.min(20,Math.max(2,Number(data.maxPlayers)));
+    if(data.players && typeof data.players==="object") players=data.players;
+    if(hostID && players[hostID]) players[hostID].host=true;
+    $("roomTitle").textContent="روم: "+roomCode+" • "+maxPlayers+" نفر";
+    updatePlayers();
   }
 }
-
+async function enterMeteredRoom(hostMode){
+  if(!window.MeteredPeer){ setStatus("کتابخانه Metered بارگذاری نشد."); log("Metered SDK موجود نیست."); return; }
+  if(!METERED_API_KEY || METERED_API_KEY.includes("REPLACE_WITH")){
+    setStatus("کلید Publishable Metered را داخل کد قرار بده."); log("کلید Metered تنظیم نشده است."); return;
+  }
+  try{
+    setStatus("در حال اتصال به Metered، لطفاً صبر کن...");
+    log("شروع اتصال به Metered...");
+    meteredPeer=new window.MeteredPeer({apiKey:METERED_API_KEY});
+    isHost=hostMode;
+    meteredPeer.on("peer-joined",({peer:remote})=>{
+      setupRemote(remote);
+      log("کاربر جدید متصل شد: "+remote.id);
+      if(isHost){
+        if(Object.keys(players).length>=maxPlayers){
+          meteredPeer.sendTo(remote.id,{type:"roomFull"}).catch(()=>{});
+          log("ظرفیت روم تکمیل است: "+remote.id);
+          return;
+        }
+        players[remote.id]={id:remote.id,name:"کاربر",host:false};
+        meteredPeer.sendTo(remote.id,{type:"room-info",hostID:hostID,players,maxPlayers}).catch(()=>{});
+        updatePlayers();
+      }
+      broadcastPresence();
+    });
+    meteredPeer.on("peer-left",({peer:remote})=>{
+      log("کاربر خارج شد: "+remote.id);
+      removeRemote(remote.id);
+    });
+    meteredPeer.on("data",handleMeteredData);
+    meteredPeer.on("state-change",({to})=>{
+      log("وضعیت Metered: "+to);
+      if(to==="reconnecting") setStatus("ارتباط قطع شد؛ در حال اتصال مجدد...");
+      if(to==="joined") setStatus("");
+    });
+    meteredPeer.on("error",({err}={})=>{
+      const message=err?.message||String(err||"خطای ناشناخته");
+      log("خطای Metered: "+message);
+      setStatus("خطا در اتصال به Metered. کنسول را بررسی کن.");
+    });
+    await meteredPeer.join("voiceroom-"+roomCode);
+    roomJoined=true;
+    myID=meteredPeer.peerId||"";
+    if(!myID) log("شناسه کاربر هنوز آماده نیست؛ بعداً دریافت می‌شود.");
+    hostID=isHost ? myID : "";
+    registerLocalPlayer();
+    showApp();
+    log("اتصال به روم برقرار شد ✅");
+    broadcastPresence();
+    if(isHost){
+      try{ await meteredPeer.send({type:"room-info",hostID,players,maxPlayers}); }catch(error){}
+    }
+  }catch(error){
+    log("ورود به روم انجام نشد: "+(error?.message||error));
+    setStatus("ورود به روم انجام نشد. کلید Metered و اینترنت را بررسی کن.");
+    roomJoined=false;
+    if(meteredPeer){ try{ meteredPeer.close(); }catch(e){} meteredPeer=null; }
+  }
+}
+async function toggleMic(){
+  if(microphoneEnabled){ stopMicrophone(); return; }
+  try{
+    localStream=await navigator.mediaDevices.getUserMedia({audio:true,video:false});
+    microphoneEnabled=true;
+    localStream.getAudioTracks().forEach(track=>track.enabled=true);
+    if(meteredPeer) meteredPeer.addStream(localStream,{role:"voice",label:"microphone"});
+    $("micBtn").textContent="🔇 خاموش کردن میکروفون";
+    addSystem("میکروفون فعال شد.");
+  }catch(error){ addSystem("دسترسی به میکروفون داده نشد."); log(error.message||error); }
+}
 function stopMicrophone(){
   if(localStream){
-    localStream.getTracks().forEach(track=>track.stop());
-    localStream = null;
+    if(meteredPeer){ try{ meteredPeer.removeStream(localStream); }catch(error){} }
+    localStream.getTracks().forEach(track=>track.stop()); localStream=null;
   }
-
-  microphoneEnabled = false;
-  $("micBtn").textContent = "🎤 میکروفون";
-
-  closeAllCalls();
-  addSystem("میکروفون خاموش شد.");
+  microphoneEnabled=false; $("micBtn").textContent="🎤 میکروفون"; addSystem("میکروفون خاموش شد.");
 }
-
-function ensureVoiceConnections(){
-  if(!peer || !microphoneEnabled || !localStream) return;
-
-  Object.keys(players).forEach(id=>{
-    if(id === myID) return;
-
-    if(!calls[id]){
-      startCall(id);
-    }
+function toggleAudio(){
+  audioEnabled=!audioEnabled;
+  document.querySelectorAll("audio[data-voice-audio]").forEach(audio=>{
+    audio.muted=!audioEnabled;
+    if(audioEnabled) audio.play().catch(()=>{});
   });
+  $("audioBtn").textContent=audioEnabled?"🔇 خاموش کردن صدا":"🔊 روشن کردن صدا";
+  addSystem(audioEnabled?"پخش صدا فعال شد.":"پخش صدا خاموش شد.");
 }
-
-function startCall(targetID){
-  if(!peer || !localStream || calls[targetID]) return;
-
-  const call = peer.call(targetID,localStream);
-
-  if(!call) return;
-
-  calls[targetID] = call;
-
-  call.on("stream",stream=>{
-    playAudio(targetID,stream);
-  });
-
-  call.on("close",()=>{
-    delete calls[targetID];
-    removeAudio(targetID);
-  });
-
-  call.on("error",()=>{
-    delete calls[targetID];
-    removeAudio(targetID);
-  });
+async function leaveRoom(){
+  if(isHost && meteredPeer && roomJoined){ try{ await meteredPeer.send({type:"system",message:"میزبان روم را ترک کرد."}); }catch(e){} }
+  stopMicrophone();
+  Object.keys(remoteAudios).forEach(id=>removeAudio(id));
+  players={}; remoteAudios={};
+  roomJoined=false;
+  if(meteredPeer){ try{ meteredPeer.close(); }catch(error){} meteredPeer=null; }
+  location.href=location.pathname;
 }
-
-function handleIncomingCall(call){
-  if(calls[call.peer]){
-    call.close();
-    return;
-  }
-
-  calls[call.peer] = call;
-  call.answer(localStream || undefined);
-
-  call.on("stream",stream=>{
-    playAudio(call.peer,stream);
-  });
-
-  call.on("close",()=>{
-    delete calls[call.peer];
-    removeAudio(call.peer);
-  });
-
-  call.on("error",()=>{
-    delete calls[call.peer];
-    removeAudio(call.peer);
-  });
-}
-
-function playAudio(id,stream){
-  let audio = document.getElementById("audio-"+id);
-
-  if(!audio){
-    audio = document.createElement("audio");
-    audio.id = "audio-"+id;
-    audio.autoplay = true;
-    audio.playsInline = true;
-    audio.controls = fal
+$("micBtn").addEventList
