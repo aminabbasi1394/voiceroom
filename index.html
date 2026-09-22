@@ -634,4 +634,456 @@ async function joinRoom(){
   catch(error){ setStatus(error.message); return; }
   showTransitionLoading("در حال ورود به روم...","در حال پیدا کردن روم و اتصال به میزبان هستیم. لطفاً چند لحظه صبر کنید ⏳");
   myName=name; isHost=false; hostID=""; players={};
-  await enterMeter
+  await enterMeteredRoom(false);
+}
+function setActiveNav(page){
+  ["navHome","navOnline","navAccount","navAbout"].forEach(id=>{ if($(id)) $(id).classList.remove("active"); });
+  if($("navHome")) $("navHome").style.display=roomJoined?"none":"";
+  const map={home:"navHome",online:"navOnline",account:"navAccount",about:"navAbout"};
+  if(map[page] && $(map[page])) $(map[page]).classList.add("active");
+}
+function showPage(page){
+  const allowed={home:true,online:true,account:true,about:true};
+  if(!allowed[page]) page="home";
+
+  const inRoom=!!roomJoined;
+  if(inRoom && page==="home") page="online";
+
+  ["homePage","onlinePage","accountPage","aboutPage"].forEach(id=>{
+    const el=$(id);
+    if(el) el.classList.toggle("hidden", id!==page+"Page");
+  });
+
+  const app=$("app");
+  if(app) app.style.display=(page==="online" && inRoom)?"block":"none";
+
+  const empty=$("onlineEmptyCard");
+  if(empty) empty.style.display=(page==="online" && !inRoom)?"flex":"none";
+
+  if(page==="online") refreshOnlineRooms();
+  if(page==="account") refreshAccount();
+  setActiveNav(page);
+}
+function showApp(){
+  hideTransitionLoading();
+  if($("loginScreen")) $("loginScreen").style.display="none";
+  if($("roomSetupScreen")) $("roomSetupScreen").classList.add("hidden");
+  if($("roomTitle")) $("roomTitle").textContent="روم: "+roomCode+" • "+maxPlayers+" نفر";
+  updateInviteLink();
+  showPage("online");
+}
+function showLogin(){
+  hideTransitionLoading();
+  if($("app")) $("app").style.display="none";
+  if($("roomSetupScreen")) $("roomSetupScreen").classList.add("hidden");
+  if($("loginScreen")) $("loginScreen").style.display="flex";
+  showPage("home");
+}
+function renderUsers(){
+  const list=$("playersList"); list.innerHTML="";
+  Object.values(players).forEach(player=>{
+    const div=document.createElement("div"); div.className="player"+(player.speaking?" speaking":"");
+    const firstLetter=String(player.name||"کاربر").charAt(0).toUpperCase();
+    let actions="";
+    if(isHost && player.id!==myID){
+      actions=`<div class="player-actions"><button onclick="hostMute(\'${escapeHTML(player.id)}\')">🔇 میوت</button><button onclick="hostKick(\'${escapeHTML(player.id)}\')">🚫 اخراج</button><button onclick="transferHost(\'${escapeHTML(player.id)}\')">👑 میزبانی</button></div>`;
+    }
+    div.innerHTML=`<div class="avatar">${escapeHTML(firstLetter)}</div><div class="player-info"><div class="player-name">${escapeHTML(player.name||"کاربر")}${player.host?'<span class="crown"> 👑</span>':''} ${player.handRaised?'<span class="hand">✋</span>':''}</div><div class="player-status">${player.speaking?'<span class="speaking-dot">● در حال صحبت</span>':(player.host?"میزبان":"عضو روم")}</div>${actions}</div>`;
+    list.appendChild(div);
+  });
+}
+function updatePlayers(){ renderUsers(); }
+function addMessage(name,message){
+  const div=document.createElement("div"); div.className="message";
+  div.innerHTML=`<b>${escapeHTML(name)}:</b> ${escapeHTML(message)}`;
+  $("messages").appendChild(div); $("messages").scrollTop=$("messages").scrollHeight;
+}
+function addSystem(message){ if($("consoleLog")) log(message); }
+async function sendMessage(){
+  const input=$("message"); const message=input.value.trim();
+  if(!message || !meteredPeer || !roomJoined) return;
+  addMessage(myName,message);
+  try{ await meteredPeer.send({type:"message",name:myName,message}); }
+  catch(error){ log("ارسال پیام ناموفق بود: "+(error.message||error)); }
+  input.value=""; input.focus();
+}
+function handleEnter(event){ if(event.key==="Enter") sendMessage(); }
+
+function registerLocalPlayer(){
+  players[myID||"local"]={id:myID||"local",name:myName,host:isHost,handRaised,speaking};
+  updatePlayers();
+}
+function broadcastPresence(){
+  if(!meteredPeer || !roomJoined) return;
+  meteredPeer.send({type:"presence",name:myName,host:isHost,hostID:hostID,maxPlayers:maxPlayers,handRaised,speaking}).catch(()=>{});
+}
+function setupRemote(remote){
+  if(!remote) return;
+  remotePeers[remote.id]=remote;
+  remote.on("stream-added",({stream})=>playAudio(remote.id,stream));
+  remote.on("stream-removed",({stream})=>removeAudio(remote.id,stream));
+  remote.on("state-change",({to})=>log("وضعیت اتصال "+remote.id+": "+to));
+}
+function removeAudio(id,stream){
+  const audio=remoteAudios[id];
+  if(audio && (!stream || audio.srcObject===stream)){
+    audio.srcObject=null; audio.remove(); delete remoteAudios[id];
+  }
+}
+function playAudio(id,stream){
+  let audio=remoteAudios[id];
+  if(!audio){
+    audio=document.createElement("audio");
+    audio.autoplay=true; audio.playsInline=true; audio.controls=false; audio.style.display="none"; audio.dataset.voiceAudio="true";
+    document.body.appendChild(audio); remoteAudios[id]=audio;
+  }
+  audio.srcObject=stream; audio.muted=!audioEnabled;
+  if(audioEnabled) audio.play().catch(()=>log("برای پخش صدا روی دکمه صدا بزنید."));
+  log("صدای کاربر دریافت شد: "+id);
+}
+function removeRemote(id){
+  removeAudio(id);
+  delete remotePeers[id];
+  delete players[id];
+  updatePlayers();
+}
+function enforceCapacity(){
+  const count=Object.keys(players).length;
+  if(count>maxPlayers){
+    log("ظرفیت روم تکمیل است.");
+    return false;
+  }
+  return true;
+}
+async function rejectGuestJoin(message){
+  guestJoinRejected=true;
+  if(guestJoinTimer){ clearTimeout(guestJoinTimer); guestJoinTimer=null; }
+  roomJoined=false;
+  guestJoinConfirmed=false;
+  stopMicrophone();
+  Object.keys(remoteAudios).forEach(id=>removeAudio(id));
+  players={};
+  if(meteredPeer){
+    try{ await meteredPeer.leave?.(); }catch(e){}
+    try{ meteredPeer.close?.(); }catch(e){}
+    meteredPeer=null;
+  }
+  showLogin();
+  setStatus(message);
+  log(message);
+}
+
+function confirmGuestJoin(){
+  if(isHost || guestJoinConfirmed || guestJoinRejected) return;
+  guestJoinConfirmed=true;
+  if(guestJoinTimer){ clearTimeout(guestJoinTimer); guestJoinTimer=null; }
+  setStatus("");
+  showApp();
+  addSystem("با موفقیت وارد روم شدید ✅");
+  log("وجود روم توسط میزبان تأیید شد ✅");
+}
+
+function sendReaction(emoji){
+  if(!meteredPeer || !roomJoined) return;
+  showReaction(myName,emoji);
+  meteredPeer.send({type:"reaction",name:myName,emoji}).catch(()=>{});
+}
+function showReaction(name,emoji){
+  const div=document.createElement("div"); div.className="reaction-pop";
+  div.textContent=String(name||"کاربر")+" "+String(emoji||"");
+  $("messages").appendChild(div); $("messages").scrollTop=$("messages").scrollHeight;
+  setTimeout(()=>div.remove(),3500);
+}
+function toggleHandRaise(){
+  handRaised=!handRaised;
+  if(players[myID]) players[myID].handRaised=handRaised;
+  $("handBtn").textContent=handRaised?"✋ پایین آوردن دست":"✋ دست بلند کردن";
+  updatePlayers();
+  if(meteredPeer&&roomJoined) meteredPeer.send({type:"hand",raised:handRaised}).catch(()=>{});
+}
+function setLocalSpeaking(value){
+  value=!!value; if(value===speaking) return; speaking=value;
+  if(players[myID]) players[myID].speaking=speaking;
+  updatePlayers();
+  if(meteredPeer&&roomJoined) meteredPeer.send({type:"speaking",speaking}).catch(()=>{});
+}
+function startSpeakingDetector(){
+  if(!localStream || speakingTimer) return;
+  try{
+    const ctx=new (window.AudioContext||window.webkitAudioContext)();
+    const source=ctx.createMediaStreamSource(localStream); analyser=ctx.createAnalyser(); analyser.fftSize=512; source.connect(analyser);
+    const data=new Uint8Array(analyser.fftSize);
+    speakingTimer=setInterval(()=>{
+      if(!analyser || !microphoneEnabled){ setLocalSpeaking(false); return; }
+      analyser.getByteTimeDomainData(data); let sum=0;
+      for(let i=0;i<data.length;i++){ const v=(data[i]-128)/128; sum+=v*v; }
+      setLocalSpeaking(Math.sqrt(sum/data.length)>0.035);
+    },120);
+  }catch(e){ log("تشخیص وضعیت صحبت در این مرورگر فعال نشد."); }
+}
+function stopSpeakingDetector(){
+  if(speakingTimer){clearInterval(speakingTimer);speakingTimer=null;} analyser=null; setLocalSpeaking(false);
+}
+function hostMute(id){
+  if(!isHost||!meteredPeer||!id||id===myID) return;
+  meteredPeer.sendTo(id,{type:"forceMute",by:myName}).catch(()=>{});
+  addSystem("دستور میوت برای کاربر ارسال شد.");
+}
+function hostKick(id){
+  if(!isHost||!meteredPeer||!id||id===myID) return;
+  meteredPeer.sendTo(id,{type:"kick",by:myName}).catch(()=>{});
+  setTimeout(()=>{ players[id]&&delete players[id]; updatePlayers(); },300);
+  addSystem("کاربر از روم اخراج شد.");
+}
+function transferHost(id){
+  if(!isHost||!meteredPeer||!id||id===myID) return;
+  hostTransferPending=true;
+  meteredPeer.sendTo(id,{type:"hostTransfer",hostID:id}).catch(()=>{hostTransferPending=false;});
+}
+function applyHostTransfer(newHostID){
+  hostID=String(newHostID||""); isHost=(myID===hostID); hostTransferPending=false;
+  Object.values(players).forEach(p=>p.host=p.id===hostID);
+  if(isHost) addSystem("شما میزبان جدید شدید 👑");
+  updatePlayers(); broadcastPresence();
+}
+
+function handleMeteredData({senderPeerId,data}){
+  if(!data || typeof data!=="object") return;
+
+  if(data.type==="reaction"){ showReaction(String(data.name||"کاربر"),String(data.emoji||"")); return; }
+  if(data.type==="hand"){ if(players[senderPeerId]) players[senderPeerId].handRaised=!!data.raised; updatePlayers(); return; }
+  if(data.type==="speaking"){ if(players[senderPeerId]) players[senderPeerId].speaking=!!data.speaking; updatePlayers(); return; }
+  if(data.type==="forceMute"){ stopMicrophone(); addSystem("میزبان میکروفون شما را خاموش کرد."); return; }
+  if(data.type==="kick"){ addSystem("شما توسط میزبان از روم اخراج شدید."); rejectGuestJoin("توسط میزبان از روم اخراج شدید."); return; }
+  if(data.type==="hostTransfer"){ applyHostTransfer(data.hostID); return; }
+  if(data.type==="roomFull"){
+    if(!isHost){
+      guestJoinRejected=true;
+      rejectGuestJoin("این روم پر است؛ ظرفیت تکمیل شده.");
+    }
+    return;
+  }
+
+  if(data.type==="system") {
+    const textMessage=String(data.message||"");
+    if(textMessage.includes("میزبان روم را ترک کرد")){
+      addSystem("میزبان از روم خارج شد.");
+      if(!isHost) rejectGuestJoin("میزبان روم را ترک کرد.");
+      return;
+    }
+    addSystem(textMessage);
+    return;
+  }
+
+  if(data.type==="message"){
+    if(senderPeerId!==myID) addMessage(String(data.name||"کاربر"),String(data.message||""));
+    return;
+  }
+  if(data.type==="presence"){
+    if(guestJoinRejected) return;
+    const name=String(data.name||"کاربر");
+    const senderIsHost=!!data.host;
+    if(senderIsHost && !hostID) hostID=senderPeerId;
+    if(senderIsHost && !isHost) confirmGuestJoin();
+    if(senderIsHost && senderPeerId!==myID){ hostID=senderPeerId; isHost=false; }
+    players[senderPeerId]={id:senderPeerId,name,host:senderPeerId===hostID||senderIsHost,handRaised:!!data.handRaised,speaking:!!data.speaking};
+    if(Number(data.maxPlayers)) maxPlayers=Math.min(20,Math.max(2,Number(data.maxPlayers)));
+    $("roomTitle").textContent="روم: "+roomCode+" • "+maxPlayers+" نفر";
+    updatePlayers();
+    return;
+  }
+  if(data.type==="room-info"){
+    if(!isHost && guestJoinRejected) return;
+    if(!isHost) confirmGuestJoin();
+    if(data.hostID) hostID=String(data.hostID);
+    if(Number(data.maxPlayers)) maxPlayers=Math.min(20,Math.max(2,Number(data.maxPlayers)));
+    if(data.players && typeof data.players==="object") players=data.players;
+    if(hostID && players[hostID]) players[hostID].host=true;
+    $("roomTitle").textContent="روم: "+roomCode+" • "+maxPlayers+" نفر";
+    updatePlayers();
+  }
+}
+async function enterMeteredRoom(hostMode){
+  if(!window.MeteredPeer){ hideTransitionLoading(); setStatus("کتابخانه Metered بارگذاری نشد."); log("Metered SDK موجود نیست."); return; }
+  if(!METERED_API_KEY || METERED_API_KEY.includes("REPLACE_WITH")){
+    setStatus("کلید Publishable Metered را داخل کد قرار بده."); log("کلید Metered تنظیم نشده است."); return;
+  }
+  try{
+    setStatus("در حال اتصال به Metered، لطفاً صبر کن...");
+    log("شروع اتصال به Metered...");
+    const PeerClass = window.MeteredPeer?.MeteredPeer || window.MeteredPeer;
+    if(typeof PeerClass!=="function") throw new Error("کلاس MeteredPeer پیدا نشد.");
+    meteredPeer=new PeerClass({apiKey:METERED_API_KEY});
+    isHost=hostMode;
+    meteredPeer.on("peer-joined",({peer:remote})=>{
+      setupRemote(remote);
+      log("کاربر جدید متصل شد: "+remote.id);
+      if(isHost){
+        if(Object.keys(players).length>=maxPlayers){
+          meteredPeer.sendTo(remote.id,{type:"roomFull"}).catch(()=>{});
+          log("ظرفیت روم تکمیل است: "+remote.id);
+          return;
+        }
+        players[remote.id]={id:remote.id,name:"کاربر",host:false};
+        meteredPeer.sendTo(remote.id,{type:"room-info",hostID:hostID,players,maxPlayers}).catch(()=>{});
+        updatePlayers();
+      }
+      broadcastPresence();
+    });
+    meteredPeer.on("peer-left",({peer:remote})=>{
+      log("کاربر خارج شد: "+remote.id);
+      removeRemote(remote.id);
+    });
+    meteredPeer.on("data",handleMeteredData);
+    meteredPeer.on("state-change",({to})=>{
+      log("وضعیت Metered: "+to);
+      if(to==="reconnecting") setStatus("ارتباط قطع شد؛ در حال اتصال مجدد...");
+      if(to==="joined") setStatus("");
+    });
+    meteredPeer.on("error",({err}={})=>{
+      const message=err?.message||String(err||"خطای ناشناخته");
+      log("خطای Metered: "+message);
+      setStatus("خطا در اتصال به Metered. کنسول را بررسی کن.");
+    });
+    await meteredPeer.join("voiceroom-"+roomCode);
+    roomJoined=true;
+    myID=meteredPeer.peerId||"";
+    if(!myID) log("شناسه کاربر هنوز آماده نیست؛ بعداً دریافت می‌شود.");
+    hostID=isHost ? myID : "";
+    registerLocalPlayer();
+
+    if(isHost){
+      showApp();
+      log("روم ساخته شد و اتصال برقرار شد ✅");
+      broadcastPresence();
+      try{ await meteredPeer.send({type:"room-info",hostID,players,maxPlayers}); }catch(error){}
+    }else{
+      guestJoinRejected=false;
+      setStatus("در حال بررسی وجود روم و پیدا کردن میزبان...");
+      log("مهمان متصل شد؛ منتظر تأیید میزبان هستیم...");
+      guestJoinConfirmed=false;
+      guestJoinTimer=setTimeout(()=>{
+        if(!guestJoinConfirmed && !guestJoinRejected){
+          rejectGuestJoin("این روم وجود ندارد یا میزبان در آن حضور ندارد.");
+        }
+      },3000);
+    }
+  }catch(error){
+    log("ورود به روم انجام نشد: "+(error?.message||error));
+    hideTransitionLoading();
+    setStatus("ورود به روم انجام نشد. کلید Metered و اینترنت را بررسی کن.");
+    roomJoined=false;
+    if(meteredPeer){ try{ meteredPeer.close(); }catch(e){} meteredPeer=null; }
+  }
+}
+async function toggleMic(){
+  if(microphoneEnabled){ stopMicrophone(); return; }
+  try{
+    if(!navigator.mediaDevices?.getUserMedia){
+      addSystem("مرورگر اجازه دسترسی به میکروفون را نمی‌دهد. سایت را با HTTPS باز کنید.");
+      return;
+    }
+    localStream=await navigator.mediaDevices.getUserMedia({audio:true,video:false});
+    microphoneEnabled=true;
+    localStream.getAudioTracks().forEach(track=>track.enabled=true);
+    if(meteredPeer) await Promise.resolve(meteredPeer.addStream(localStream,{role:"voice",label:"microphone"})).catch(error=>log("ارسال میکروفون ناموفق بود: "+(error?.message||error)));
+    startSpeakingDetector();
+    $("micBtn").textContent="🔇 خاموش کردن میکروفون";
+    addSystem("میکروفون فعال شد.");
+  }catch(error){ addSystem("دسترسی به میکروفون داده نشد."); log(error.message||error); }
+}
+function stopMicrophone(){
+  stopSpeakingDetector();
+  if(localStream){
+    if(meteredPeer){ try{ meteredPeer.removeStream(localStream); }catch(error){} }
+    localStream.getTracks().forEach(track=>track.stop()); localStream=null;
+  }
+  microphoneEnabled=false; $("micBtn").textContent="🎤 میکروفون"; addSystem("میکروفون خاموش شد.");
+}
+function toggleAudio(){
+  audioEnabled=!audioEnabled;
+  document.querySelectorAll("audio[data-voice-audio]").forEach(audio=>{
+    audio.muted=!audioEnabled;
+    if(audioEnabled) audio.play().catch(()=>{});
+  });
+  $("audioBtn").textContent=audioEnabled?"🔇 خاموش کردن صدا":"🔊 روشن کردن صدا";
+  addSystem(audioEnabled?"پخش صدا فعال شد.":"پخش صدا خاموش شد.");
+}
+async function leaveRoom(){
+  if(isHost && meteredPeer && roomJoined){ try{ await meteredPeer.send({type:"system",message:"میزبان روم را ترک کرد."}); }catch(e){} }
+  stopMicrophone();
+  Object.keys(remotePeers).forEach(id=>{ try{ remotePeers[id]?.close?.(); }catch(e){} delete remotePeers[id]; });
+  Object.keys(remoteAudios).forEach(id=>removeAudio(id));
+  Object.keys(remoteAudios).forEach(id=>delete remoteAudios[id]);
+  players={};
+  roomJoined=false;
+  myID="";
+  hostID="";
+  isHost=false;
+  microphoneEnabled=false;
+  handRaised=false;
+  speaking=false;
+  $("handBtn").textContent="✋ دست بلند کردن";
+  $("audioBtn").textContent="🔇 خاموش کردن صدا";
+
+  if(guestJoinTimer){ clearTimeout(guestJoinTimer); guestJoinTimer=null; }
+  guestJoinConfirmed=false;
+  guestJoinRejected=false;
+  if(meteredPeer){ try{ meteredPeer.close(); }catch(error){} meteredPeer=null; }
+  showLogin();
+  refreshOnlineRooms();
+  setStatus("از روم خارج شدید.");
+}
+function refreshOnlineRooms(){
+  const box=$("onlineRoomList"); if(!box) return;
+  if(roomJoined && roomCode){
+    box.innerHTML=`<div class="online-room"><div style="display:flex;align-items:center;gap:10px"><span class="online-dot"></span><div><div class="online-room-name">روم: ${escapeHTML(roomCode)}</div><div class="small">شما در این روم آنلاین هستید • ${maxPlayers} نفر</div></div></div><button class="primary" onclick="showPage('online')">ورود به روم</button></div>`;
+  }else{
+    box.innerHTML='<div class="empty-online">🕊️<br><br>روم آنلاینی ندارید.</div>';
+  }
+}
+
+function getAccount(){ try{return JSON.parse(localStorage.getItem("voiceroom_account")||"null");}catch(e){return null;} }
+function refreshAccount(){
+  const a=getAccount();
+  const html=a?"👤 <b>"+escapeHTML(a.username)+"</b><br>حساب شما روی همین مرورگر ذخیره شده.":"👤 حساب مهمان<br>برای ذخیره نام کاربری، ثبت نام کن.";
+  if($("accountPageCard")) $("accountPageCard").innerHTML=html;
+}
+function registerAccount(){
+  const u=$("accountUsername").value.trim(), pw=$("accountPassword").value;
+  if(u.length<3||pw.length<4){alert("نام کاربری حداقل ۳ و رمز عبور حداقل ۴ کاراکتر باشد.");return;}
+  localStorage.setItem("voiceroom_account",JSON.stringify({username:u,password:pw}));
+  $("name").value=u; myName=u; refreshAccount();
+  alert("ثبت نام انجام شد ✅");
+}
+function loginAccount(){
+  const a=getAccount(),u=$("accountUsername").value.trim(),pw=$("accountPassword").value;
+  if(!a||a.username!==u||a.password!==pw){alert("نام کاربری یا رمز عبور اشتباه است.");return;}
+  $("name").value=u; myName=u; refreshAccount();
+  alert("ورود به حساب انجام شد ✅");
+}
+function logoutAccount(){
+  localStorage.removeItem("voiceroom_account");
+  refreshAccount();
+  alert("از حساب خارج شدید.");
+}
+document.addEventListener("click",function(event){
+  const button=event.target.closest(".site-nav-links button");
+  if(!button) return;
+  event.preventDefault();
+  const page=button.id==="navHome"?"home":button.id==="navOnline"?"online":button.id==="navAccount"?"account":"about";
+  showPage(page);
+});
+
+refreshAccount();
+showPage("home");
+loadRoomFromURL();
+window.addEventListener("beforeunload",()=>{
+  try{ stopMicrophone(); }catch(e){}
+  try{ meteredPeer?.close?.(); }catch(e){}
+});
+</script>
+
+
+</body>
+</html>
