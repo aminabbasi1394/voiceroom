@@ -424,6 +424,8 @@ let roomCode = "";
 let isHost = false;
 let hostID = "";
 let roomJoined = false;
+let guestJoinConfirmed = false;
+let guestJoinTimer = null;
 let players = {};
 let localStream = null;
 let microphoneEnabled = false;
@@ -578,8 +580,39 @@ function enforceCapacity(){
   }
   return true;
 }
+async function rejectGuestJoin(message){
+  if(guestJoinTimer){ clearTimeout(guestJoinTimer); guestJoinTimer=null; }
+  roomJoined=false;
+  guestJoinConfirmed=false;
+  stopMicrophone();
+  Object.keys(remoteAudios).forEach(id=>removeAudio(id));
+  players={};
+  if(meteredPeer){
+    try{ await meteredPeer.leave?.(); }catch(e){}
+    try{ meteredPeer.close?.(); }catch(e){}
+    meteredPeer=null;
+  }
+  showLogin();
+  setStatus(message);
+  log(message);
+}
+
+function confirmGuestJoin(){
+  if(isHost || guestJoinConfirmed) return;
+  guestJoinConfirmed=true;
+  if(guestJoinTimer){ clearTimeout(guestJoinTimer); guestJoinTimer=null; }
+  setStatus("");
+  log("وجود روم توسط میزبان تأیید شد ✅");
+}
+
 function handleMeteredData({senderPeerId,data}){
   if(!data || typeof data!=="object") return;
+
+  if(data.type==="roomFull"){
+    if(!isHost) rejectGuestJoin("این روم پر است؛ ظرفیت تکمیل شده.");
+    return;
+  }
+
   if(data.type==="message"){
     if(senderPeerId!==myID) addMessage(String(data.name||"کاربر"),String(data.message||""));
     return;
@@ -588,6 +621,7 @@ function handleMeteredData({senderPeerId,data}){
     const name=String(data.name||"کاربر");
     const senderIsHost=!!data.host;
     if(senderIsHost && !hostID) hostID=senderPeerId;
+    if(senderIsHost && !isHost) confirmGuestJoin();
     if(senderIsHost) isHost=false;
     players[senderPeerId]={id:senderPeerId,name,host:senderPeerId===hostID||senderIsHost};
     if(Number(data.maxPlayers)) maxPlayers=Math.min(20,Math.max(2,Number(data.maxPlayers)));
@@ -596,6 +630,7 @@ function handleMeteredData({senderPeerId,data}){
     return;
   }
   if(data.type==="room-info"){
+    if(!isHost) confirmGuestJoin();
     if(data.hostID) hostID=String(data.hostID);
     if(Number(data.maxPlayers)) maxPlayers=Math.min(20,Math.max(2,Number(data.maxPlayers)));
     if(data.players && typeof data.players==="object") players=data.players;
@@ -652,11 +687,21 @@ async function enterMeteredRoom(hostMode){
     if(!myID) log("شناسه کاربر هنوز آماده نیست؛ بعداً دریافت می‌شود.");
     hostID=isHost ? myID : "";
     registerLocalPlayer();
-    showApp();
-    log("اتصال به روم برقرار شد ✅");
-    broadcastPresence();
+
     if(isHost){
+      showApp();
+      log("روم ساخته شد و اتصال برقرار شد ✅");
+      broadcastPresence();
       try{ await meteredPeer.send({type:"room-info",hostID,players,maxPlayers}); }catch(error){}
+    }else{
+      setStatus("در حال بررسی وجود روم و پیدا کردن میزبان...");
+      log("مهمان متصل شد؛ منتظر تأیید میزبان هستیم...");
+      guestJoinConfirmed=false;
+      guestJoinTimer=setTimeout(()=>{
+        if(!guestJoinConfirmed){
+          rejectGuestJoin("این روم وجود ندارد یا میزبان در آن حضور ندارد.");
+        }
+      },4500);
     }
   }catch(error){
     log("ورود به روم انجام نشد: "+(error?.message||error));
@@ -696,14 +741,14 @@ async function leaveRoom(){
   if(isHost && meteredPeer && roomJoined){ try{ await meteredPeer.send({type:"system",message:"میزبان روم را ترک کرد."}); }catch(e){} }
   stopMicrophone();
   Object.keys(remoteAudios).forEach(id=>removeAudio(id));
-  players={}; remoteAudios={};
+  players={};
+  Object.keys(remoteAudios).forEach(id=>delete remoteAudios[id]);
   roomJoined=false;
+  if(guestJoinTimer){ clearTimeout(guestJoinTimer); guestJoinTimer=null; }
+  guestJoinConfirmed=false;
   if(meteredPeer){ try{ meteredPeer.close(); }catch(error){} meteredPeer=null; }
   location.href=location.pathname;
 }
-$("micBtn").addEventListener("click",toggleMic);
-$("audioBtn").addEventListener("click",toggleAudio);
-$("message").addEventListener("keydown",handleEnter);
 loadRoomFromURL();
 </script>
 
