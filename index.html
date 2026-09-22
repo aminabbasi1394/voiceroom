@@ -53,10 +53,10 @@ h1,h2,h3{margin-top:0}
 .topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 16px;margin-bottom:12px}
 .brand{font-size:18px;font-weight:800;color:#8290ff}.room-name{font-size:12px;color:#9ca8bf;margin-top:4px}
 .top-actions{display:flex;gap:6px;flex-wrap:wrap}.top-actions button{font-size:12px;padding:9px 11px}
-.room-layout{display:grid;grid-template-columns:1fr 285px;gap:12px}
+.room-layout{display:grid;grid-template-columns:minmax(0,1fr) 285px;gap:12px}
 .content,.side{padding:16px}
 .section-title{color:#a9b5ff;font-size:14px;margin:5px 0 14px}
-#messages{height:58vh;min-height:330px;overflow-y:auto;padding:8px;background:#0e1420;border-radius:12px}
+#messages{height:68vh;min-height:420px;max-height:720px;overflow-y:auto;padding:10px;background:#0e1420;border-radius:12px}
 .message{background:#252f43;border-radius:11px;padding:10px;margin:8px 0;font-size:13px;word-break:break-word}.message b{color:#aab4ff}
 .system{text-align:center;color:#8490a7;font-size:11px;margin:10px}
 .reactions{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}.reactions button{padding:7px 10px;background:#202a40}
@@ -79,7 +79,7 @@ h1,h2,h3{margin-top:0}
   .nav{right:8px;left:8px;top:auto;bottom:8px;transform:none;width:auto;padding:8px;border-radius:17px}
   .nav-brand{display:none}.nav-links{margin:0;flex-direction:row;gap:6px}.nav-button{text-align:center;padding:10px 5px;min-height:46px;font-size:11px;flex:1}
   .page{padding:16px 10px 82px;height:100vh}.room-layout{grid-template-columns:1fr}.side{order:2}.content{order:1}.topbar{align-items:flex-start}.top-actions{width:100%}.top-actions button{flex:1}
-  #messages{height:48vh;min-height:280px}.form-row{flex-direction:column}
+  #messages{height:52vh;min-height:280px;max-height:none}.form-row{flex-direction:column}
 }
 </style>
 </head>
@@ -282,7 +282,7 @@ h1,h2,h3{margin-top:0}
 "use strict";
 
 /* فقط کلید Publishable Metered را اینجا قرار بده. کلید Secret را هرگز داخل HTML نگذار. */
-const METERED_API_KEY = "pk_live_c5fd9585879fec36158a127251bbab3415d93cdf";
+const METERED_API_KEY = "pk_live_REPLACE_WITH_YOUR_PUBLISHABLE_KEY";
 const DEFAULT_MAX_PLAYERS = 5;
 const MIN_MAX_PLAYERS = 2;
 const MAX_MAX_PLAYERS = 20;
@@ -1057,14 +1057,8 @@ function addMessage(name,message){
 
 function addSystem(message){
   const text=String(message||"");
-  const box=$("messages");
-  if(box){
-    const div=document.createElement("div");
-    div.className="system";
-    div.textContent=`— ${text} —`;
-    box.appendChild(div);
-    box.scrollTop=box.scrollHeight;
-  }
+  if(!text) return;
+  toast(text);
   log(text);
 }
 
