@@ -166,7 +166,7 @@ select{
   max-width:1150px;
   margin:12px auto;
   display:grid;
-  grid-template-columns:270px 1fr;
+  grid-template-columns:1fr 270px;
   gap:12px;
 }
 .side,.content{
@@ -301,7 +301,15 @@ audio{
   line-height:1.8;
 }
 
+
+.right-menu{position:fixed;right:14px;top:78px;width:260px;background:linear-gradient(145deg,#171e2df7,#10172bf7);border:1px solid #344064;border-radius:16px;padding:14px;box-shadow:0 15px 45px #0007;z-index:50;display:none}
+.right-menu.open{display:block}
+.menu-item{width:100%;text-align:right;background:#202a40;margin:5px 0;padding:11px 12px}
+.menu-item:hover{background:#303d5d}
+.account-card{background:#10172b;border:1px solid #303b58;border-radius:12px;padding:12px;margin-bottom:10px;font-size:12px;line-height:2}
+.account-form{display:none}.account-form.show{display:block}
 @media(max-width:750px){
+  .right-menu{left:12px;right:12px;width:auto}
   .main{
     grid-template-columns:1fr;
   }
@@ -368,6 +376,20 @@ audio{
 
 <!-- APP -->
 <section id="app">
+  <div id="rightMenu" class="right-menu">
+    <div class="section-title">☰ منوی VoiceRoom</div>
+    <div id="accountCard" class="account-card">حساب مهمان</div>
+    <button class="menu-item" onclick="showAbout()">ℹ️ درباره VoiceRoom</button>
+    <button class="menu-item" onclick="toggleAccountForm()">👤 حساب کاربری</button>
+    <div id="accountForm" class="account-form">
+      <input id="accountUsername" placeholder="نام کاربری">
+      <input id="accountPassword" type="password" placeholder="رمز عبور">
+      <div class="buttons"><button class="primary" onclick="registerAccount()">ثبت نام</button><button class="secondary" onclick="loginAccount()">ورود</button></div>
+      <button class="menu-item" onclick="logoutAccount()">خروج از حساب</button>
+    </div>
+    <div id="aboutBox" class="account-card hidden"><b>VoiceRoom</b><br>یک روم گفتگوی صوتی و متنی ساده برای دوستان.<br>نسخه آزمایشی</div>
+  </div>
+
 
   <header class="topbar">
     <div>
@@ -376,6 +398,7 @@ audio{
     </div>
 
     <div class="top-actions">
+      <button onclick="toggleMenu()">☰ منو</button>
       <button onclick="copyInvite()">🔗 دعوت</button>
       <button onclick="toggleMic()" id="micBtn">🎤 میکروفون</button>
       <button onclick="toggleAudio()" id="audioBtn">🔇 خاموش کردن صدا</button>
@@ -408,11 +431,11 @@ audio{
       <div id="messages"></div>
 
       <div class="reactions">
-        <button onclick="sendReaction("👍")">👍</button>
-        <button onclick="sendReaction("❤️")">❤️</button>
-        <button onclick="sendReaction("😂")">😂</button>
-        <button onclick="sendReaction("👏")">👏</button>
-        <button onclick="sendReaction("🔥")">🔥</button>
+        <button onclick="sendReaction('👍')">👍</button>
+        <button onclick="sendReaction('❤️')">❤️</button>
+        <button onclick="sendReaction('😂')">😂</button>
+        <button onclick="sendReaction('👏')">👏</button>
+        <button onclick="sendReaction('🔥')">🔥</button>
       </div>
 
       <div class="send-box">
@@ -851,6 +874,16 @@ async function leaveRoom(){
   if(meteredPeer){ try{ meteredPeer.close(); }catch(error){} meteredPeer=null; }
   location.href=location.pathname;
 }
+function toggleMenu(){ $("rightMenu").classList.toggle("open"); }
+function toggleAccountForm(){ $("accountForm").classList.toggle("show"); }
+function showAbout(){ $("aboutBox").classList.toggle("hidden"); }
+function getAccount(){ try{return JSON.parse(localStorage.getItem("voiceroom_account")||"null");}catch(e){return null;} }
+function refreshAccount(){ const a=getAccount(); $("accountCard").innerHTML=a?"👤 <b>"+escapeHTML(a.username)+"</b><br>حساب شما روی همین مرورگر ذخیره شده.":"👤 حساب مهمان<br>برای ذخیره نام کاربری، ثبت نام کن."; }
+function registerAccount(){ const u=$("accountUsername").value.trim(), pw=$("accountPassword").value; if(u.length<3||pw.length<4){alert("نام کاربری حداقل ۳ و رمز عبور حداقل ۴ کاراکتر باشد.");return;} localStorage.setItem("voiceroom_account",JSON.stringify({username:u,password:pw})); $("name").value=u; myName=u; refreshAccount(); addSystem("ثبت نام انجام شد ✅"); }
+function loginAccount(){ const a=getAccount(),u=$("accountUsername").value.trim(),pw=$("accountPassword").value; if(!a||a.username!==u||a.password!==pw){alert("نام کاربری یا رمز عبور اشتباه است.");return;} $("name").value=u; myName=u; refreshAccount(); addSystem("ورود به حساب انجام شد ✅"); }
+function logoutAccount(){ localStorage.removeItem("voiceroom_account"); refreshAccount(); addSystem("از حساب خارج شدید."); }
+refreshAccount();
+
 loadRoomFromURL();
 </script>
 
