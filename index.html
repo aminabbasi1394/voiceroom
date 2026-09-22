@@ -320,6 +320,7 @@ audio{
 .site-nav-links button{width:100%;padding:15px 16px;font-size:14px;background:#202a40;text-align:right;min-height:52px}
 .site-nav-links button.active{background:linear-gradient(135deg,#7357ff,#2f8cff)}
 .page{height:100vh;min-height:100vh;margin-right:285px;padding:1px 20px;overflow-y:auto;overflow-x:hidden;display:block}
+#homePage{overflow-y:auto;overflow-x:hidden;}
 #homePage{overflow:hidden}
 .page-card{width:min(920px,calc(100% - 20px));min-height:calc(100vh - 56px);overflow:visible;max-width:920px;margin:28px auto;padding:34px;background:linear-gradient(145deg,#171e2de8,#10172be8);border:1px solid #344064;border-radius:20px;box-shadow:0 15px 50px #0005}
 .page-card h2{margin-top:0;color:#a9b5ff}
@@ -333,6 +334,7 @@ audio{
   .site-nav-links{width:100%;flex-direction:row;gap:6px}
   .site-nav-links button{flex:1;text-align:center;padding:10px 4px;min-height:46px;font-size:12px}
   .page{margin-right:0;padding:1px 8px 82px;height:100vh;min-height:100vh;overflow-y:auto;overflow-x:hidden}
+#homePage{overflow-y:auto;overflow-x:hidden;}
 #homePage{overflow:hidden}
   .main{
     grid-template-columns:1fr;
@@ -499,33 +501,10 @@ audio{
 </section>
 
 <!-- ACCOUNT PAGE -->
-<section id="accountPage" class="page hidden">
-  <div class="page-card">
-    <h2>👤 حساب کاربری</h2>
-    <div id="accountPageCard" class="account-card"></div>
-    <div class="account-form">
-      <input id="accountUsername" placeholder="نام کاربری">
-      <input id="accountPassword" type="password" placeholder="رمز عبور">
-      <div class="buttons">
-        <button class="primary" onclick="registerAccount()">ثبت نام</button>
-        <button class="secondary" onclick="loginAccount()">ورود</button>
-      </div>
-      <button style="width:100%;margin-top:8px" onclick="logoutAccount()">خروج از حساب</button>
-    </div>
-  </div>
-</section>
+
 
 <!-- ABOUT PAGE -->
-<section id="aboutPage" class="page hidden">
-  <div class="page-card about-card">
-    <h2>ℹ️ درباره VoiceRoom</h2>
-    <div class="about-text">
-      <p><b>درباره وبسایت:</b></p>
-      <p>وبسایت voiceroom به شما این امکان را میدهد که با دوستان خود در محیطی امن و <b>مطمئن</b> صحبت کنید و یا به روم های عمومی وصل شوید!</p>
-      <p class="creator"><b>سازنده:</b> محمد امین عباسی</p>
-    </div>
-  </div>
-</section>
+
 <script>
 /* Metered Realtime - publishable browser key */
 const METERED_API_KEY = "pk_live_c5fd9585879fec36158a127251bbab3415d93cdf";
@@ -630,4 +609,25 @@ async function joinRoom(){
 }
 function setActiveNav(page){
   ["navHome","navOnline","navAccount","navAbout"].forEach(id=>{ if($(id)) $(id).classList.remove("active"); });
-  if($("navHome")) $("navHome").style.display=roomJoin
+  if($("navHome")) $("navHome").style.display=roomJoined?"none":"";
+  const map={home:"navHome",online:"navOnline",account:"navAccount",about:"navAbout"};
+  if(map[page] && $(map[page])) $(map[page]).classList.add("active");
+}
+function showPage(page){
+  const inRoom=!!roomJoined;
+  if(inRoom && page==="home") page="online";
+  $("homePage").classList.toggle("hidden",page!=="home");
+  $("onlinePage").classList.toggle("hidden",page!=="online");
+  $("accountPage").classList.toggle("hidden",page!=="account");
+  $("aboutPage").classList.toggle("hidden",page!=="about");
+  if($("app")) $("app").style.display=(page==="online" && inRoom)?"block":"none";
+  if($("onlineEmptyCard")) $("onlineEmptyCard").style.display=(page==="online" && !inRoom)?"flex":"none";
+  if(page==="online") refreshOnlineRooms();
+  setActiveNav(page);
+  if(page==="account") refreshAccount();
+}
+function showApp(){
+  hideTransitionLoading();
+  $("loginScreen").style.display="none";
+  $("roomSetupScreen").classList.add("hidden");
+  $("roomTit
