@@ -11,8 +11,9 @@
 <style>
 *{
   box-sizing:border-box;
-  font-family:Tahoma,Arial,sans-serif;
+  font-family:"Vazirmatn","Segoe UI",Tahoma,Arial,sans-serif;
 }
+html,body{width:100%;height:100%;overflow:hidden;}
 body{
   margin:0;
   background:
@@ -21,6 +22,7 @@ body{
     linear-gradient(135deg,#090d1d 0%,#17113a 48%,#081d3c 100%);
   color:#fff;
   min-height:100vh;
+  overflow:hidden;
 }
 button,input{
   font:inherit;
@@ -302,14 +304,24 @@ audio{
 }
 
 
-.right-menu{position:fixed;right:14px;top:78px;width:260px;background:linear-gradient(145deg,#171e2df7,#10172bf7);border:1px solid #344064;border-radius:16px;padding:14px;box-shadow:0 15px 45px #0007;z-index:50;display:none}
-.right-menu.open{display:block}
-.menu-item{width:100%;text-align:right;background:#202a40;margin:5px 0;padding:11px 12px}
-.menu-item:hover{background:#303d5d}
-.account-card{background:#10172b;border:1px solid #303b58;border-radius:12px;padding:12px;margin-bottom:10px;font-size:12px;line-height:2}
-.account-form{display:none}.account-form.show{display:block}
+.site-nav{position:fixed;right:18px;top:50%;transform:translateY(-50%);z-index:100;width:245px;min-height:390px;padding:20px;background:linear-gradient(145deg,#171e2df7,#10172bf7);border:1px solid #344064;border-radius:18px;display:flex;flex-direction:column;align-items:stretch;gap:16px;box-shadow:0 15px 45px #0007}
+.site-brand{font-size:17px;font-weight:bold;color:#a99aff;white-space:nowrap;text-align:center;padding:4px 0 8px;border-bottom:1px solid #303b58}
+.site-nav-links{display:flex;flex-direction:column;gap:11px;flex:1}
+.site-nav-links button{width:100%;padding:15px 16px;font-size:14px;background:#202a40;text-align:right;min-height:52px}
+.site-nav-links button.active{background:linear-gradient(135deg,#7357ff,#2f8cff)}
+.page{height:100vh;min-height:100vh;margin-right:275px;padding:1px 20px;overflow:hidden}
+.page-card{width:min(900px,calc(100% - 20px));max-height:calc(100vh - 56px);overflow:hidden;max-width:900px;margin:28px auto;padding:32px;background:linear-gradient(145deg,#171e2de8,#10172be8);border:1px solid #344064;border-radius:20px;box-shadow:0 15px 50px #0005}
+.page-card h2{margin-top:0;color:#a9b5ff}
+.account-card{background:#10172b;border:1px solid #303b58;border-radius:12px;padding:14px;margin:12px 0;font-size:12px;line-height:2}
+.account-form{width:100%;max-width:620px;margin:auto;background:#0f1729;border:1px solid #303b58;border-radius:16px;padding:20px}.account-form .buttons{gap:12px}.account-form input{height:48px}
+.online-room-list{display:flex;flex-direction:column;gap:12px;margin-top:18px}.online-room{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px;background:#121c31;border:1px solid #334263;border-radius:16px}.online-room-name{font-weight:bold;font-size:15px}.online-dot{width:11px;height:11px;border-radius:50%;background:#45e68b;box-shadow:0 0 12px #45e68b}.empty-online{text-align:center;padding:50px 20px;color:#8d99af;background:#101722;border:1px dashed #344064;border-radius:16px}.online-card{display:flex;flex-direction:column;justify-content:center}
+
 @media(max-width:750px){
-  .right-menu{left:12px;right:12px;width:auto}
+  .site-nav{right:8px;top:auto;bottom:10px;transform:none;width:calc(100% - 16px);min-height:auto;padding:8px;border-radius:16px}
+  .site-brand{display:none}
+  .site-nav-links{width:100%;flex-direction:row;gap:6px}
+  .site-nav-links button{flex:1;text-align:center;padding:10px 4px;min-height:46px;font-size:12px}
+  .page{margin-right:0;padding:1px 8px 82px;height:100vh}
   .main{
     grid-template-columns:1fr;
   }
@@ -323,6 +335,19 @@ audio{
 </head>
 
 <body>
+
+<nav class="site-nav">
+  <div class="site-brand">🎙️ VoiceRoom</div>
+  <div class="site-nav-links">
+    <button id="navHome" onclick="showPage('home')">🏠 خانه</button>
+    <button id="navOnline" onclick="showPage('online')">🟢 روم آنلاین</button>
+    <button id="navAccount" onclick="showPage('account')">👤 حساب</button>
+    <button id="navAbout" onclick="showPage('about')">ℹ️ درباره</button>
+  </div>
+</nav>
+
+<!-- HOME PAGE -->
+<div id="homePage" class="page">
 
 <!-- LOGIN -->
 <section id="loginScreen">
@@ -376,21 +401,6 @@ audio{
 
 <!-- APP -->
 <section id="app">
-  <div id="rightMenu" class="right-menu">
-    <div class="section-title">☰ منوی VoiceRoom</div>
-    <div id="accountCard" class="account-card">حساب مهمان</div>
-    <button class="menu-item" onclick="showAbout()">ℹ️ درباره VoiceRoom</button>
-    <button class="menu-item" onclick="toggleAccountForm()">👤 حساب کاربری</button>
-    <div id="accountForm" class="account-form">
-      <input id="accountUsername" placeholder="نام کاربری">
-      <input id="accountPassword" type="password" placeholder="رمز عبور">
-      <div class="buttons"><button class="primary" onclick="registerAccount()">ثبت نام</button><button class="secondary" onclick="loginAccount()">ورود</button></div>
-      <button class="menu-item" onclick="logoutAccount()">خروج از حساب</button>
-    </div>
-    <div id="aboutBox" class="account-card hidden"><b>VoiceRoom</b><br>یک روم گفتگوی صوتی و متنی ساده برای دوستان.<br>نسخه آزمایشی</div>
-  </div>
-
-
   <header class="topbar">
     <div>
       <div class="brand">🎙️ VoiceRoom</div>
@@ -398,7 +408,6 @@ audio{
     </div>
 
     <div class="top-actions">
-      <button onclick="toggleMenu()">☰ منو</button>
       <button onclick="copyInvite()">🔗 دعوت</button>
       <button onclick="toggleMic()" id="micBtn">🎤 میکروفون</button>
       <button onclick="toggleAudio()" id="audioBtn">🔇 خاموش کردن صدا</button>
@@ -451,6 +460,46 @@ audio{
     </section>
 
   </main>
+</section>
+
+</div><!-- /homePage -->
+
+<!-- ONLINE ROOMS PAGE -->
+<section id="onlinePage" class="page hidden">
+  <div class="page-card online-card">
+    <h2>🟢 روم آنلاین</h2>
+    <p class="small">روم فعلی که از همین مرورگر به آن متصل شده‌ای در این بخش نمایش داده می‌شود.</p>
+    <div id="onlineRoomList" class="online-room-list"></div>
+  </div>
+</section>
+
+<!-- ACCOUNT PAGE -->
+<section id="accountPage" class="page hidden">
+  <div class="page-card">
+    <h2>👤 حساب کاربری</h2>
+    <div id="accountPageCard" class="account-card"></div>
+    <div class="account-form">
+      <input id="accountUsername" placeholder="نام کاربری">
+      <input id="accountPassword" type="password" placeholder="رمز عبور">
+      <div class="buttons">
+        <button class="primary" onclick="registerAccount()">ثبت نام</button>
+        <button class="secondary" onclick="loginAccount()">ورود</button>
+      </div>
+      <button style="width:100%;margin-top:8px" onclick="logoutAccount()">خروج از حساب</button>
+    </div>
+  </div>
+</section>
+
+<!-- ABOUT PAGE -->
+<section id="aboutPage" class="page hidden">
+  <div class="page-card">
+    <h2>ℹ️ درباره VoiceRoom</h2>
+    <div class="account-card">
+      <b>VoiceRoom</b><br>
+      یک روم گفتگوی صوتی و متنی ساده برای دوستان.<br>
+      نسخه آزمایشی
+    </div>
+  </div>
 </section>
 
 <script>
@@ -543,17 +592,33 @@ async function joinRoom(){
   myName=name; isHost=false; hostID=""; players={};
   await enterMeteredRoom(false);
 }
+function setActiveNav(page){
+  ["navHome","navOnline","navAccount","navAbout"].forEach(id=>{ if($(id)) $(id).classList.remove("active"); });
+  const map={home:"navHome",online:"navOnline",account:"navAccount",about:"navAbout"};
+  if(map[page]) $(map[page]).classList.add("active");
+}
+function showPage(page){
+  $("homePage").classList.toggle("hidden",page!=="home");
+  $("onlinePage").classList.toggle("hidden",page!=="online");
+  $("accountPage").classList.toggle("hidden",page!=="account");
+  $("aboutPage").classList.toggle("hidden",page!=="about");
+  if(page==="online") refreshOnlineRooms();
+  setActiveNav(page);
+  if(page==="account") refreshAccount();
+}
 function showApp(){
   $("loginScreen").style.display="none";
   $("roomSetupScreen").classList.add("hidden");
   $("app").style.display="block";
   $("roomTitle").textContent="روم: "+roomCode+" • "+maxPlayers+" نفر";
   updateInviteLink();
+  showPage("online");
 }
 function showLogin(){
   $("app").style.display="none";
   $("roomSetupScreen").classList.add("hidden");
   $("loginScreen").style.display="flex";
+  showPage("home");
 }
 function renderUsers(){
   const list=$("playersList"); list.innerHTML="";
@@ -574,7 +639,7 @@ function addMessage(name,message){
   div.innerHTML=`<b>${escapeHTML(name)}:</b> ${escapeHTML(message)}`;
   $("messages").appendChild(div); $("messages").scrollTop=$("messages").scrollHeight;
 }
-function addSystem(message){ log(message); }
+function addSystem(message){ if($("consoleLog")) log(message); }
 async function sendMessage(){
   const input=$("message"); const message=input.value.trim();
   if(!message || !meteredPeer || !roomJoined) return;
@@ -824,7 +889,7 @@ async function enterMeteredRoom(hostMode){
         if(!guestJoinConfirmed){
           rejectGuestJoin("این روم وجود ندارد یا میزبان در آن حضور ندارد.");
         }
-      },4500);
+      },3000);
     }
   }catch(error){
     log("ورود به روم انجام نشد: "+(error?.message||error));
@@ -872,18 +937,45 @@ async function leaveRoom(){
   if(guestJoinTimer){ clearTimeout(guestJoinTimer); guestJoinTimer=null; }
   guestJoinConfirmed=false;
   if(meteredPeer){ try{ meteredPeer.close(); }catch(error){} meteredPeer=null; }
-  location.href=location.pathname;
+  showLogin();
+  refreshOnlineRooms();
+  setStatus("از روم خارج شدید.");
 }
-function toggleMenu(){ $("rightMenu").classList.toggle("open"); }
-function toggleAccountForm(){ $("accountForm").classList.toggle("show"); }
-function showAbout(){ $("aboutBox").classList.toggle("hidden"); }
-function getAccount(){ try{return JSON.parse(localStorage.getItem("voiceroom_account")||"null");}catch(e){return null;} }
-function refreshAccount(){ const a=getAccount(); $("accountCard").innerHTML=a?"👤 <b>"+escapeHTML(a.username)+"</b><br>حساب شما روی همین مرورگر ذخیره شده.":"👤 حساب مهمان<br>برای ذخیره نام کاربری، ثبت نام کن."; }
-function registerAccount(){ const u=$("accountUsername").value.trim(), pw=$("accountPassword").value; if(u.length<3||pw.length<4){alert("نام کاربری حداقل ۳ و رمز عبور حداقل ۴ کاراکتر باشد.");return;} localStorage.setItem("voiceroom_account",JSON.stringify({username:u,password:pw})); $("name").value=u; myName=u; refreshAccount(); addSystem("ثبت نام انجام شد ✅"); }
-function loginAccount(){ const a=getAccount(),u=$("accountUsername").value.trim(),pw=$("accountPassword").value; if(!a||a.username!==u||a.password!==pw){alert("نام کاربری یا رمز عبور اشتباه است.");return;} $("name").value=u; myName=u; refreshAccount(); addSystem("ورود به حساب انجام شد ✅"); }
-function logoutAccount(){ localStorage.removeItem("voiceroom_account"); refreshAccount(); addSystem("از حساب خارج شدید."); }
-refreshAccount();
+function refreshOnlineRooms(){
+  const box=$("onlineRoomList"); if(!box) return;
+  if(roomJoined && roomCode){
+    box.innerHTML=`<div class="online-room"><div style="display:flex;align-items:center;gap:10px"><span class="online-dot"></span><div><div class="online-room-name">روم: ${escapeHTML(roomCode)}</div><div class="small">شما در این روم آنلاین هستید • ${maxPlayers} نفر</div></div></div><button class="primary" onclick="showPage('home')">ورود به روم</button></div>`;
+  }else{
+    box.innerHTML='<div class="empty-online">🕊️<br><br>روم آنلاینی ندارید.</div>';
+  }
+}
 
+function getAccount(){ try{return JSON.parse(localStorage.getItem("voiceroom_account")||"null");}catch(e){return null;} }
+function refreshAccount(){
+  const a=getAccount();
+  const html=a?"👤 <b>"+escapeHTML(a.username)+"</b><br>حساب شما روی همین مرورگر ذخیره شده.":"👤 حساب مهمان<br>برای ذخیره نام کاربری، ثبت نام کن.";
+  if($("accountPageCard")) $("accountPageCard").innerHTML=html;
+}
+function registerAccount(){
+  const u=$("accountUsername").value.trim(), pw=$("accountPassword").value;
+  if(u.length<3||pw.length<4){alert("نام کاربری حداقل ۳ و رمز عبور حداقل ۴ کاراکتر باشد.");return;}
+  localStorage.setItem("voiceroom_account",JSON.stringify({username:u,password:pw}));
+  $("name").value=u; myName=u; refreshAccount();
+  alert("ثبت نام انجام شد ✅");
+}
+function loginAccount(){
+  const a=getAccount(),u=$("accountUsername").value.trim(),pw=$("accountPassword").value;
+  if(!a||a.username!==u||a.password!==pw){alert("نام کاربری یا رمز عبور اشتباه است.");return;}
+  $("name").value=u; myName=u; refreshAccount();
+  alert("ورود به حساب انجام شد ✅");
+}
+function logoutAccount(){
+  localStorage.removeItem("voiceroom_account");
+  refreshAccount();
+  alert("از حساب خارج شدید.");
+}
+refreshAccount();
+showPage("home");
 loadRoomFromURL();
 </script>
 
