@@ -212,6 +212,16 @@ select{
   margin-top:4px;
 }
 .crown{color:#ffd34e}
+.player-actions{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}
+.player-actions button{padding:5px 7px;font-size:10px;background:#303b58}
+.player-actions button:hover{background:#46557e}
+.speaking{box-shadow:0 0 0 2px #45e68b55;background:#263b3a}
+.speaking-dot{color:#45e68b;font-weight:bold}
+.hand{color:#ffd34e;font-size:14px}
+.reactions{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}
+.reactions button{padding:7px 10px;background:#202a40}
+.reaction-pop{position:relative;background:#202a40;border-radius:10px;padding:7px 10px;margin:5px 0;font-size:12px;animation:pop .25s ease}
+@keyframes pop{from{transform:scale(.8);opacity:.2}to{transform:scale(1);opacity:1}}
 
 #messages{
   height:53vh;
@@ -369,6 +379,7 @@ audio{
       <button onclick="copyInvite()">🔗 دعوت</button>
       <button onclick="toggleMic()" id="micBtn">🎤 میکروفون</button>
       <button onclick="toggleAudio()" id="audioBtn">🔇 خاموش کردن صدا</button>
+      <button onclick="toggleHandRaise()" id="handBtn">✋ دست بلند کردن</button>
       <button onclick="leaveRoom()">🚪 خروج</button>
     </div>
   </header>
@@ -396,6 +407,14 @@ audio{
 
       <div id="messages"></div>
 
+      <div class="reactions">
+        <button onclick="sendReaction("👍")">👍</button>
+        <button onclick="sendReaction("❤️")">❤️</button>
+        <button onclick="sendReaction("😂")">😂</button>
+        <button onclick="sendReaction("👏")">👏</button>
+        <button onclick="sendReaction("🔥")">🔥</button>
+      </div>
+
       <div class="send-box">
         <input id="message"
                placeholder="پیامت رو بنویس..."
@@ -413,7 +432,7 @@ audio{
 
 <script>
 /* Metered Realtime - publishable browser key */
-const METERED_API_KEY = "pk_live_c5fd9585879fec36158a127251bbab3415d93cdf";
+const METERED_API_KEY = "pk_live_REPLACE_WITH_YOUR_PUBLISHABLE_KEY";
 const DEFAULT_MAX_PLAYERS = 5;
 let maxPlayers = DEFAULT_MAX_PLAYERS;
 
@@ -430,6 +449,11 @@ let players = {};
 let localStream = null;
 let microphoneEnabled = false;
 let audioEnabled = true;
+let handRaised = false;
+let speaking = false;
+let analyser = null;
+let speakingTimer = null;
+let hostTransferPending = false;
 const remoteAudios = {};
 const remotePeers = {};
 
@@ -511,9 +535,13 @@ function showLogin(){
 function renderUsers(){
   const list=$("playersList"); list.innerHTML="";
   Object.values(players).forEach(player=>{
-    const div=document.createElement("div"); div.className="player";
+    const div=document.createElement("div"); div.className="player"+(player.speaking?" speaking":"");
     const firstLetter=String(player.name||"کاربر").charAt(0).toUpperCase();
-    div.innerHTML=`<div class="avatar">${escapeHTML(firstLetter)}</div><div class="player-info"><div class="player-name">${escapeHTML(player.name||"کاربر")}${player.host?'<span class="crown"> 👑</span>':''}</div><div class="player-status">${player.host?"میزبان":"عضو روم"}</div></div>`;
+    let actions="";
+    if(isHost && player.id!==myID){
+      actions=`<div class="player-actions"><button onclick="hostMute(\'${escapeHTML(player.id)}\')">🔇 میوت</button><button onclick="hostKick(\'${escapeHTML(player.id)}\')">🚫 اخراج</button><button onclick="transferHost(\'${escapeHTML(player.id)}\')">👑 میزبانی</button></div>`;
+    }
+    div.innerHTML=`<div class="avatar">${escapeHTML(firstLetter)}</div><div class="player-info"><div class="player-name">${escapeHTML(player.name||"کاربر")}${player.host?'<span class="crown"> 👑</span>':''} ${player.handRaised?'<span class="hand">✋</span>':''}</div><div class="player-status">${player.speaking?'<span class="speaking-dot">● در حال صحبت</span>':(player.host?"میزبان":"عضو روم")}</div>${actions}</div>`;
     list.appendChild(div);
   });
 }
@@ -535,12 +563,12 @@ async function sendMessage(){
 function handleEnter(event){ if(event.key==="Enter") sendMessage(); }
 
 function registerLocalPlayer(){
-  players[myID||"local"]={id:myID||"local",name:myName,host:isHost};
+  players[myID||"local"]={id:myID||"local",name:myName,host:isHost,handRaised,speaking};
   updatePlayers();
 }
 function broadcastPresence(){
   if(!meteredPeer || !roomJoined) return;
-  meteredPeer.send({type:"presence",name:myName,host:isHost,hostID:hostID,maxPlayers:maxPlayers}).catch(()=>{});
+  meteredPeer.send({type:"presence",name:myName,host:isHost,hostID:hostID,maxPlayers:maxPlayers,handRaised,speaking}).catch(()=>{});
 }
 function setupRemote(remote){
   if(!remote) return;
@@ -605,9 +633,79 @@ function confirmGuestJoin(){
   log("وجود روم توسط میزبان تأیید شد ✅");
 }
 
+function sendReaction(emoji){
+  if(!meteredPeer || !roomJoined) return;
+  showReaction(myName,emoji);
+  meteredPeer.send({type:"reaction",name:myName,emoji}).catch(()=>{});
+}
+function showReaction(name,emoji){
+  const div=document.createElement("div"); div.className="reaction-pop";
+  div.textContent=String(name||"کاربر")+" "+String(emoji||"");
+  $("messages").appendChild(div); $("messages").scrollTop=$("messages").scrollHeight;
+  setTimeout(()=>div.remove(),3500);
+}
+function toggleHandRaise(){
+  handRaised=!handRaised;
+  if(players[myID]) players[myID].handRaised=handRaised;
+  $("handBtn").textContent=handRaised?"✋ پایین آوردن دست":"✋ دست بلند کردن";
+  updatePlayers();
+  if(meteredPeer&&roomJoined) meteredPeer.send({type:"hand",raised:handRaised}).catch(()=>{});
+}
+function setLocalSpeaking(value){
+  value=!!value; if(value===speaking) return; speaking=value;
+  if(players[myID]) players[myID].speaking=speaking;
+  updatePlayers();
+  if(meteredPeer&&roomJoined) meteredPeer.send({type:"speaking",speaking}).catch(()=>{});
+}
+function startSpeakingDetector(){
+  if(!localStream || speakingTimer) return;
+  try{
+    const ctx=new (window.AudioContext||window.webkitAudioContext)();
+    const source=ctx.createMediaStreamSource(localStream); analyser=ctx.createAnalyser(); analyser.fftSize=512; source.connect(analyser);
+    const data=new Uint8Array(analyser.fftSize);
+    speakingTimer=setInterval(()=>{
+      if(!analyser || !microphoneEnabled){ setLocalSpeaking(false); return; }
+      analyser.getByteTimeDomainData(data); let sum=0;
+      for(let i=0;i<data.length;i++){ const v=(data[i]-128)/128; sum+=v*v; }
+      setLocalSpeaking(Math.sqrt(sum/data.length)>0.035);
+    },120);
+  }catch(e){ log("تشخیص وضعیت صحبت در این مرورگر فعال نشد."); }
+}
+function stopSpeakingDetector(){
+  if(speakingTimer){clearInterval(speakingTimer);speakingTimer=null;} analyser=null; setLocalSpeaking(false);
+}
+function hostMute(id){
+  if(!isHost||!meteredPeer||!id||id===myID) return;
+  meteredPeer.sendTo(id,{type:"forceMute",by:myName}).catch(()=>{});
+  addSystem("دستور میوت برای کاربر ارسال شد.");
+}
+function hostKick(id){
+  if(!isHost||!meteredPeer||!id||id===myID) return;
+  meteredPeer.sendTo(id,{type:"kick",by:myName}).catch(()=>{});
+  setTimeout(()=>{ players[id]&&delete players[id]; updatePlayers(); },300);
+  addSystem("کاربر از روم اخراج شد.");
+}
+function transferHost(id){
+  if(!isHost||!meteredPeer||!id||id===myID) return;
+  hostTransferPending=true;
+  meteredPeer.sendTo(id,{type:"hostTransfer",hostID:id}).catch(()=>{hostTransferPending=false;});
+}
+function applyHostTransfer(newHostID){
+  hostID=String(newHostID||""); isHost=(myID===hostID); hostTransferPending=false;
+  Object.values(players).forEach(p=>p.host=p.id===hostID);
+  if(isHost) addSystem("شما میزبان جدید شدید 👑");
+  updatePlayers(); broadcastPresence();
+}
+
 function handleMeteredData({senderPeerId,data}){
   if(!data || typeof data!=="object") return;
 
+  if(data.type==="reaction"){ showReaction(String(data.name||"کاربر"),String(data.emoji||"")); return; }
+  if(data.type==="hand"){ if(players[senderPeerId]) players[senderPeerId].handRaised=!!data.raised; updatePlayers(); return; }
+  if(data.type==="speaking"){ if(players[senderPeerId]) players[senderPeerId].speaking=!!data.speaking; updatePlayers(); return; }
+  if(data.type==="forceMute"){ stopMicrophone(); addSystem("میزبان میکروفون شما را خاموش کرد."); return; }
+  if(data.type==="kick"){ addSystem("شما توسط میزبان از روم اخراج شدید."); rejectGuestJoin("توسط میزبان از روم اخراج شدید."); return; }
+  if(data.type==="hostTransfer"){ applyHostTransfer(data.hostID); return; }
   if(data.type==="roomFull"){
     if(!isHost) rejectGuestJoin("این روم پر است؛ ظرفیت تکمیل شده.");
     return;
@@ -622,8 +720,8 @@ function handleMeteredData({senderPeerId,data}){
     const senderIsHost=!!data.host;
     if(senderIsHost && !hostID) hostID=senderPeerId;
     if(senderIsHost && !isHost) confirmGuestJoin();
-    if(senderIsHost) isHost=false;
-    players[senderPeerId]={id:senderPeerId,name,host:senderPeerId===hostID||senderIsHost};
+    if(senderIsHost && senderPeerId!==myID){ hostID=senderPeerId; isHost=false; }
+    players[senderPeerId]={id:senderPeerId,name,host:senderPeerId===hostID||senderIsHost,handRaised:!!data.handRaised,speaking:!!data.speaking};
     if(Number(data.maxPlayers)) maxPlayers=Math.min(20,Math.max(2,Number(data.maxPlayers)));
     $("roomTitle").textContent="روم: "+roomCode+" • "+maxPlayers+" نفر";
     updatePlayers();
@@ -717,11 +815,13 @@ async function toggleMic(){
     microphoneEnabled=true;
     localStream.getAudioTracks().forEach(track=>track.enabled=true);
     if(meteredPeer) meteredPeer.addStream(localStream,{role:"voice",label:"microphone"});
+    startSpeakingDetector();
     $("micBtn").textContent="🔇 خاموش کردن میکروفون";
     addSystem("میکروفون فعال شد.");
   }catch(error){ addSystem("دسترسی به میکروفون داده نشد."); log(error.message||error); }
 }
 function stopMicrophone(){
+  stopSpeakingDetector();
   if(localStream){
     if(meteredPeer){ try{ meteredPeer.removeStream(localStream); }catch(error){} }
     localStream.getTracks().forEach(track=>track.stop()); localStream=null;
