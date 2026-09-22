@@ -13,7 +13,7 @@
   box-sizing:border-box;
   font-family:"Vazirmatn","Segoe UI",Tahoma,Arial,sans-serif;
 }
-html,body{width:100%;min-height:100%;overflow-x:hidden;overflow-y:auto;}
+html,body{width:100%;height:100%;overflow:hidden;}
 body{
   margin:0;
   background:
@@ -24,8 +24,7 @@ body{
   min-height:100vh;
   -webkit-font-smoothing:antialiased;
   text-rendering:optimizeLegibility;
-  overflow-x:hidden;
-  overflow-y:auto;
+  overflow:hidden;
 }
 button,input{
   font:inherit;
@@ -315,13 +314,13 @@ audio{
 }
 
 
-.site-nav{position:fixed;right:18px;top:50%;transform:translateY(-50%);z-index:100;width:280px;min-height:430px;padding:24px;background:linear-gradient(145deg,#171e2df7,#10172bf7);border:1px solid #344064;border-radius:18px;display:flex;flex-direction:column;align-items:stretch;gap:18px;box-shadow:0 15px 45px #0007}
+.site-nav{position:fixed;right:18px;top:50%;transform:translateY(-50%);z-index:10000;width:280px;min-height:430px;padding:24px;background:linear-gradient(145deg,#171e2df7,#10172bf7);border:1px solid #344064;border-radius:18px;display:flex;flex-direction:column;align-items:stretch;gap:18px;box-shadow:0 15px 45px #0007}
 .site-brand{font-size:17px;font-weight:bold;color:#a99aff;white-space:nowrap;text-align:center;padding:4px 0 8px;border-bottom:1px solid #303b58}
-.site-nav-links{display:flex;flex-direction:column;gap:11px;flex:1}
-.site-nav-links button{width:100%;padding:15px 16px;font-size:14px;background:#202a40;text-align:right;min-height:52px}
+.site-nav-links{position:relative;z-index:10001;display:flex;flex-direction:column;gap:11px;flex:1}
+.site-nav-links button{position:relative;z-index:10002;pointer-events:auto;width:100%;padding:15px 16px;font-size:14px;background:#202a40;text-align:right;min-height:52px}
 .site-nav-links button.active{background:linear-gradient(135deg,#7357ff,#2f8cff)}
-.page{min-height:100vh;margin-right:285px;padding:1px 20px;overflow-x:hidden;overflow-y:auto;display:block;position:relative;z-index:1}
-#homePage{overflow-x:hidden;overflow-y:auto}
+.page{height:100vh;min-height:100vh;margin-right:285px;padding:1px 20px;overflow-y:auto;overflow-x:hidden;display:block;position:relative;z-index:1}
+#homePage{overflow:hidden;}
 .page-card{width:min(920px,calc(100% - 20px));min-height:calc(100vh - 56px);overflow:visible;max-width:920px;margin:28px auto;padding:34px;background:linear-gradient(145deg,#171e2de8,#10172be8);border:1px solid #344064;border-radius:20px;box-shadow:0 15px 50px #0005}
 .page-card h2{margin-top:0;color:#a9b5ff}
 .about-text{font-size:15px;line-height:2.2;color:#c8d0e2;background:#10172b;border:1px solid #303b58;border-radius:16px;padding:24px}.about-text p{margin:0 0 14px}.about-text .creator{margin-top:24px;color:#aeb9d8}.account-card{background:#10172b;border:1px solid #303b58;border-radius:12px;padding:14px;margin:12px 0;font-size:12px;line-height:2}
@@ -333,8 +332,9 @@ audio{
   .site-brand{display:none}
   .site-nav-links{width:100%;flex-direction:row;gap:6px}
   .site-nav-links button{flex:1;text-align:center;padding:10px 4px;min-height:46px;font-size:12px}
-  .page{margin-right:0;padding:1px 8px 82px;min-height:100vh;overflow-y:auto;overflow-x:hidden}
-#homePage{overflow-x:hidden;overflow-y:auto}
+  .page{margin-right:0;padding:1px 8px 82px;height:100vh;min-height:100vh;overflow-y:auto;overflow-x:hidden}
+#homePage{overflow:hidden;}
+#homePage{overflow:hidden}
   .main{
     grid-template-columns:1fr;
   }
@@ -504,6 +504,35 @@ audio{
 
 <!-- ABOUT PAGE -->
 
+
+<!-- ACCOUNT PAGE -->
+<section id="accountPage" class="page hidden">
+  <div class="page-card">
+    <h2>👤 حساب کاربری</h2>
+    <div id="accountPageCard" class="account-card"></div>
+    <div class="account-form">
+      <input id="accountUsername" placeholder="نام کاربری">
+      <input id="accountPassword" type="password" placeholder="رمز عبور">
+      <div class="buttons">
+        <button class="primary" onclick="registerAccount()">ثبت نام</button>
+        <button class="secondary" onclick="loginAccount()">ورود</button>
+      </div>
+      <button style="width:100%;margin-top:8px" onclick="logoutAccount()">خروج از حساب</button>
+    </div>
+  </div>
+</section>
+
+<!-- ABOUT PAGE -->
+<section id="aboutPage" class="page hidden">
+  <div class="page-card about-card">
+    <h2>ℹ️ درباره VoiceRoom</h2>
+    <div class="about-text">
+      <p><b>درباره وبسایت:</b></p>
+      <p>وبسایت voiceroom به شما این امکان را میدهد که با دوستان خود در محیطی امن و <b>مطمئن</b> صحبت کنید و یا به روم های عمومی وصل شوید!</p>
+      <p class="creator"><b>سازنده:</b> محمد امین عباسی</p>
+    </div>
+  </div>
+</section>
 <script>
 /* Metered Realtime - publishable browser key */
 const METERED_API_KEY = "pk_live_c5fd9585879fec36158a127251bbab3415d93cdf";
@@ -546,6 +575,7 @@ function escapeHTML(text){
 }
 function setStatus(text){ $("status").textContent = text; }
 function showTransitionLoading(title,text){
+  transitionBusy=true;
   if($("loadingTitle")) $("loadingTitle").textContent=title||"لطفاً صبر کنید...";
   if($("loadingText")) $("loadingText").textContent=text||"در حال آماده‌سازی روم و اتصال به سرور هستیم. صفحه خالی نیست 😊";
   if($("transitionLoading")) $("transitionLoading").classList.add("show");
@@ -604,29 +634,4 @@ async function joinRoom(){
   catch(error){ setStatus(error.message); return; }
   showTransitionLoading("در حال ورود به روم...","در حال پیدا کردن روم و اتصال به میزبان هستیم. لطفاً چند لحظه صبر کنید ⏳");
   myName=name; isHost=false; hostID=""; players={};
-  await enterMeteredRoom(false);
-}
-function setActiveNav(page){
-  ["navHome","navOnline","navAccount","navAbout"].forEach(id=>{ if($(id)) $(id).classList.remove("active"); });
-  if($("navHome")) $("navHome").style.display=roomJoined?"none":"";
-  const map={home:"navHome",online:"navOnline",account:"navAccount",about:"navAbout"};
-  if(map[page] && $(map[page])) $(map[page]).classList.add("active");
-}
-function showPage(page){
-  page=String(page||"home");
-  const inRoom=!!roomJoined;
-  if(inRoom && page==="home") page="online";
-  $("homePage").classList.toggle("hidden",page!=="home");
-  $("onlinePage").classList.toggle("hidden",page!=="online");
-  $("accountPage").classList.toggle("hidden",page!=="account");
-  $("aboutPage").classList.toggle("hidden",page!=="about");
-  if($("app")) $("app").style.display=(page==="online" && inRoom)?"block":"none";
-  if($("onlineEmptyCard")) $("onlineEmptyCard").style.display=(page==="online" && !inRoom)?"flex":"none";
-  if(page==="online") refreshOnlineRooms();
-  setActiveNav(page);
-  if(page==="account") refreshAccount();
-}
-function showApp(){
-  hideTransitionLoading();
-  $("loginScreen").style.display="none";
-  $("roomSetupScreen").classList.add("hidd
+  await enterMeter
