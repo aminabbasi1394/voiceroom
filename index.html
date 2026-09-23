@@ -28,7 +28,7 @@ input:focus,select:focus{border-color:#7180ff;box-shadow:0 0 0 3px #7180ff22}
 .page.active{display:block}
 .page-inner{width:min(100%,980px);margin:0 auto}
 .nav{position:fixed;z-index:1000;right:18px;top:50%;transform:translateY(-50%);width:282px;padding:22px;background:linear-gradient(145deg,#171e2df7,#10172bf7);border:1px solid #344064;border-radius:20px;box-shadow:0 20px 60px #0008}
-.nav-brand{text-align:center;font-weight:800;font-size:18px;color:#a99aff;padding:4px 0 16px;border-bottom:1px solid #303b58}
+.nav-brand{text-align:center;font-weight:800;font-size:18px;color:#a99aff;padding:4px 0 8px;border-bottom:1px solid #303b58}.nav-online{display:flex;align-items:center;justify-content:center;gap:6px;margin:0 0 6px;color:#45e68b;font-size:11px;line-height:1.7}.nav-online-dot{width:7px;height:7px;border-radius:50%;background:#45e68b;box-shadow:0 0 9px #45e68b;flex:0 0 7px}
 .nav-links{display:flex;flex-direction:column;gap:10px;margin-top:14px}
 .nav-button{width:100%;min-height:52px;text-align:right;background:#202a40;padding:14px 16px;font-size:14px}
 .nav-button.active{background:linear-gradient(135deg,#7357ff,#2f8cff);box-shadow:0 8px 25px #4e67ff33}
@@ -77,7 +77,7 @@ h1,h2,h3{margin-top:0}
 
 @media(max-width:820px){
   .nav{right:8px;left:8px;top:auto;bottom:max(8px,env(safe-area-inset-bottom));transform:none;width:auto;padding:8px;border-radius:17px}
-  .nav-brand{display:none}.nav-links{margin:0;flex-direction:row;gap:6px}.nav-button{text-align:center;padding:10px 5px;min-height:46px;font-size:11px;flex:1}
+  .nav-brand{display:block;padding:2px 0 6px;border-bottom:1px solid #303b58}.nav-online{margin:0 0 5px;font-size:10px}.nav-links{margin:0;flex-direction:row;gap:6px}.nav-button{text-align:center;padding:10px 5px;min-height:46px;font-size:11px;flex:1}
   .page{padding:72px 10px 92px;height:100vh}.home-card{margin:34px auto 20px;padding:28px 20px}.setup-card{margin:34px auto 20px;padding:28px 20px}.home-room-card{margin:28px auto 20px;padding:24px 18px}.page-card{padding:22px 16px;margin:14px auto}
   .room-layout{grid-template-columns:1fr}.side{order:2}.content{order:1}.topbar{align-items:flex-start;padding:12px 10px}.top-actions{width:100%}.top-actions button{flex:1}
   #messages{height:58vh;min-height:340px;max-height:none}.content{padding:12px}.side{padding:12px}.form-row{flex-direction:column}
@@ -92,6 +92,7 @@ h1,h2,h3{margin-top:0}
 
 <nav class="nav" aria-label="ناوبری اصلی">
   <div class="nav-brand">🎙️ VoiceRoom</div>
+  <div id="navOnlineCount" class="nav-online"><span class="nav-online-dot"></span><span>1 نفر آنلاین</span></div>
   <div class="nav-links">
     <button class="nav-button" data-page="home">🏠 خانه</button>
     <button class="nav-button" data-page="public">🌐 روم‌های عمومی</button>
@@ -287,7 +288,7 @@ h1,h2,h3{margin-top:0}
 "use strict";
 
 /* فقط کلید Publishable Metered را اینجا قرار بده. کلید Secret را هرگز داخل HTML نگذار. */
-const METERED_API_KEY = "pk_live_c5fd9585879fec36158a127251bbab3415d93cdf";
+const METERED_API_KEY = "pk_live_REPLACE_WITH_YOUR_PUBLISHABLE_KEY";
 const DEFAULT_MAX_PLAYERS = 5;
 const MIN_MAX_PLAYERS = 2;
 const MAX_MAX_PLAYERS = 20;
@@ -301,6 +302,7 @@ const state = {
   peer:null,
   lobbyPeer:null,
   lobbyTimer:null,
+  lobbyPeers:{},
   publicRooms:{},
   myID:"",
   myName:"",
@@ -445,6 +447,13 @@ function navigateTo(page){
   if(actualPage==="public") renderPublicRooms();
   if(actualPage==="online") renderOnlinePage();
   if(actualPage==="account") refreshAccount();
+}
+
+function updateOnlineCount(){
+  const el=$("navOnlineCount");
+  if(!el) return;
+  const count=Math.max(1,Object.keys(state.lobbyPeers||{}).length+1);
+  el.innerHTML=`<span class="nav-online-dot"></span><span>${count} نفر آنلاین</span>`;
 }
 
 function renderHomeRoomCard(){
@@ -933,6 +942,8 @@ async function checkRoomExists(code){
 
 function startPublicLobby(isHost){
   stopPublicLobby();
+  state.lobbyPeers={};
+  updateOnlineCount();
   try{
     state.lobbyPeer=makeMeteredPeer();
     wireLobbyEvents(state.lobbyPeer);
@@ -954,6 +965,8 @@ function startPublicLobby(isHost){
 function wireLobbyEvents(peer){
   peer.on("peer-joined",({peer:remote}={})=>{
     if(!remote||!state.lobbyPeer) return;
+    state.lobbyPeers[String(remote.id)]=true;
+    updateOnlineCount();
     if(state.isHost&&state.roomJoined&&state.roomVisibility==="public"){
       const payload={type:"public-room",code:state.roomCode,hostID:state.myID,hostName:state.myName,maxPlayers:state.maxPlayers};
       state.lobbyPeer.sendTo(String(remote.id),payload).catch(()=>{});
@@ -961,6 +974,8 @@ function wireLobbyEvents(peer){
   });
   peer.on("peer-left",({peer:remote}={})=>{
     if(!remote) return;
+    delete state.lobbyPeers[String(remote.id||"")];
+    updateOnlineCount();
     const hostID=String(remote.id||"");
     Object.keys(state.publicRooms).forEach(code=>{
       if(String(state.publicRooms[code]?.hostID||"")===hostID) delete state.publicRooms[code];
@@ -1002,6 +1017,8 @@ function advertisePublicRoom(){
 
 function stopPublicLobby(){
   clearInterval(state.lobbyTimer); state.lobbyTimer=null;
+  state.lobbyPeers={};
+  updateOnlineCount();
   state.lobbyReadyPromise=null;
   if(state.lobbyPeer){ try{state.lobbyPeer.close();}catch(e){} state.lobbyPeer=null; }
 }
@@ -1434,6 +1451,7 @@ refreshAccount();
 loadRoomFromURL();
 navigateTo("home");
 startPublicLobby(false);
+updateOnlineCount();
 
 function updateRoomLive(){
   const el=$("roomLive");
