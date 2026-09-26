@@ -24,12 +24,13 @@ input:focus,select:focus{border-color:#7180ff;box-shadow:0 0 0 3px #7180ff22}
 .primary{background:linear-gradient(135deg,#7357ff,#2f8cff);box-shadow:0 8px 25px #4e67ff44}
 .secondary{background:#29324d}
 .danger{background:#8e3749}
-.page{height:100vh;overflow-y:auto;overflow-x:hidden;padding:26px 320px 32px 24px;display:none;scroll-behavior:smooth}
+.page{height:100vh;overflow-y:auto;overflow-x:hidden;padding:88px 320px 32px 24px;display:none;scroll-behavior:smooth}
 .page.active{display:block}
 .page-inner{width:min(100%,980px);margin:0 auto}
-.nav{position:fixed;z-index:1000;right:18px;top:50%;transform:translateY(-50%);width:282px;padding:22px;background:linear-gradient(145deg,#171e2df7,#10172bf7);border:1px solid #344064;border-radius:20px;box-shadow:0 20px 60px #0008}
+.menu-toggle{position:fixed;z-index:1100;top:18px;right:18px;width:52px;height:52px;border:1px solid #344064;border-radius:15px;background:linear-gradient(145deg,#171e2df7,#10172bf7);color:#fff;font-size:23px;cursor:pointer;box-shadow:0 12px 35px #0008;display:flex;align-items:center;justify-content:center}.menu-toggle:active{transform:scale(.96)}
+.nav{position:fixed;z-index:1050;right:18px;top:80px;bottom:18px;width:282px;padding:22px;background:linear-gradient(145deg,#171e2df7,#10172bf7);border:1px solid #344064;border-radius:20px;box-shadow:0 20px 60px #0008;opacity:0;visibility:hidden;transform:translateY(-10px) scale(.98);transform-origin:top right;transition:opacity .2s ease,transform .2s ease,visibility .2s ease}.nav.open{opacity:1;visibility:visible;transform:translateY(0) scale(1)}
 .nav-brand{text-align:center;font-weight:800;font-size:18px;color:#a99aff;padding:4px 0 8px;border-bottom:1px solid #303b58}.nav-online{display:flex;align-items:center;justify-content:center;gap:6px;margin:0 0 6px;color:#45e68b;font-size:11px;line-height:1.7}.nav-online-dot{width:7px;height:7px;border-radius:50%;background:#45e68b;box-shadow:0 0 9px #45e68b;flex:0 0 7px}
-.nav-links{display:flex;flex-direction:column;gap:10px;margin-top:14px}
+.nav-links{display:flex;flex-direction:column;gap:10px;margin-top:14px}.nav-footer{margin-top:auto;padding-top:18px;border-top:1px solid #303b58;text-align:center;color:#7f8aa2;font-size:11px;direction:ltr}
 .nav-button{width:100%;min-height:52px;text-align:right;background:#202a40;padding:14px 16px;font-size:14px}
 .nav-button.active{background:linear-gradient(135deg,#7357ff,#2f8cff);box-shadow:0 8px 25px #4e67ff33}
 .card{background:linear-gradient(145deg,#171e2de8,#10172be8);border:1px solid #344064;border-radius:20px;box-shadow:0 15px 50px #0005}
@@ -76,8 +77,8 @@ h1,h2,h3{margin-top:0}
 #app{display:none}
 
 @media(max-width:820px){
-  .nav{right:8px;left:8px;top:auto;bottom:max(8px,env(safe-area-inset-bottom));transform:none;width:auto;padding:8px;border-radius:17px}
-  .nav-brand{display:block;padding:2px 0 6px;border-bottom:1px solid #303b58}.nav-online{margin:0 0 5px;font-size:10px}.nav-links{margin:0;flex-direction:row;gap:6px}.nav-button{text-align:center;padding:10px 5px;min-height:46px;font-size:11px;flex:1}
+  .menu-toggle{top:max(8px,env(safe-area-inset-top));right:8px;width:48px;height:48px;border-radius:14px}.nav{right:8px;left:8px;top:64px;bottom:8px;width:auto;padding:12px;border-radius:17px;transform:translateY(-10px) scale(.98);transform-origin:top right}.nav.open{transform:translateY(0) scale(1)}
+  .nav-brand{display:block;padding:2px 0 6px;border-bottom:1px solid #303b58}.nav-online{margin:0 0 8px;font-size:10px}.nav-links{margin:0;flex-direction:column;gap:6px}.nav-button{text-align:center;padding:10px 5px;min-height:46px;font-size:11px;flex:1}
   .page{padding:72px 10px 92px;height:100vh}.home-card{margin:34px auto 20px;padding:28px 20px}.setup-card{margin:34px auto 20px;padding:28px 20px}.home-room-card{margin:28px auto 20px;padding:24px 18px}.page-card{padding:22px 16px;margin:14px auto}
   .room-layout{grid-template-columns:1fr}.side{order:2}.content{order:1}.topbar{align-items:flex-start;padding:12px 10px}.top-actions{width:100%}.top-actions button{flex:1}
   #messages{height:58vh;min-height:340px;max-height:none}.content{padding:12px}.side{padding:12px}.form-row{flex-direction:column}
@@ -90,7 +91,9 @@ h1,h2,h3{margin-top:0}
 </head>
 <body>
 
-<nav class="nav" aria-label="ناوبری اصلی">
+<button id="menuToggle" class="menu-toggle" type="button" aria-label="باز کردن منو" aria-expanded="false">☰</button>
+
+<nav id="mainNav" class="nav" aria-label="ناوبری اصلی">
   <div class="nav-brand">🎙️ VoiceRoom</div>
   <div id="navOnlineCount" class="nav-online"><span class="nav-online-dot"></span><span>1 نفر آنلاین</span></div>
   <div class="nav-links">
@@ -100,6 +103,7 @@ h1,h2,h3{margin-top:0}
     <button class="nav-button" data-page="account">👤 حساب</button>
     <button class="nav-button" data-page="about">ℹ️ درباره</button>
   </div>
+  <div class="nav-footer">VoiceRoom 2026©</div>
 </nav>
 
 <main>
@@ -288,7 +292,7 @@ h1,h2,h3{margin-top:0}
 "use strict";
 
 /* فقط کلید Publishable Metered را اینجا قرار بده. کلید Secret را هرگز داخل HTML نگذار. */
-const METERED_API_KEY = "pk_live_c5fd9585879fec36158a127251bbab3415d93cdf";
+const METERED_API_KEY = "pk_live_REPLACE_WITH_YOUR_PUBLISHABLE_KEY";
 const DEFAULT_MAX_PLAYERS = 5;
 const MIN_MAX_PLAYERS = 2;
 const MAX_MAX_PLAYERS = 20;
@@ -432,6 +436,25 @@ function setBusy(busy,text){
   if($("homeLoading")) $("homeLoading").textContent=busy?(text||"در حال اتصال..."):"";
 }
 
+function toggleMenu(force){
+  const nav=$("mainNav");
+  const btn=$("menuToggle");
+  if(!nav||!btn) return;
+  const open=typeof force==="boolean"?force:!nav.classList.contains("open");
+  nav.classList.toggle("open",open);
+  btn.setAttribute("aria-expanded",String(open));
+  btn.setAttribute("aria-label",open?"بستن منو":"باز کردن منو");
+  btn.textContent=open?"✕":"☰";
+}
+
+document.addEventListener("DOMContentLoaded",()=>{
+  $("menuToggle")?.addEventListener("click",()=>toggleMenu());
+  document.addEventListener("click",event=>{
+    const nav=$("mainNav"); const btn=$("menuToggle");
+    if(nav?.classList.contains("open") && !nav.contains(event.target) && !btn?.contains(event.target)) toggleMenu(false);
+  });
+});
+
 function navigateTo(page){
   const valid=["home","public","online","account","about"];
   if(!valid.includes(page)) page="home";
@@ -442,6 +465,7 @@ function navigateTo(page){
   if(target) target.classList.add("active");
 
   document.querySelectorAll(".nav-button").forEach(btn=>btn.classList.toggle("active",btn.dataset.page===page));
+  toggleMenu(false);
 
   if(actualPage==="home") renderHomeRoomCard();
   if(actualPage==="public") renderPublicRooms();
